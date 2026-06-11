@@ -8,6 +8,7 @@ x-countly-environment: &countly-environment
   COUNTLY_CONFIG__FILESTORAGE: gridfs
   COUNTLY_CONFIG_API_API_HOST: 0.0.0.0
   COUNTLY_CONFIG_FRONTEND_WEB_HOST: 0.0.0.0
+  COUNTLY_CONFIG_FRONTEND_WEB_TRACK: none
   NODE_OPTIONS: --max-old-space-size=2048
   INSIDE_DOCKER: "1"
 
