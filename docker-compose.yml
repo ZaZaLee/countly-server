@@ -3,8 +3,8 @@ x-countly-image: &countly-image
 
 x-countly-environment: &countly-environment
   COUNTLY_PLUGINS: mobile,web,desktop,plugins,density,locale,browser,sources,views,logger,systemlogs,populator,reports,crashes,push,star-rating,slipping-away-users,compare,server-stats,dbviewer,times-of-day,compliance-hub,alerts,onboarding,consolidate,remote-config,hooks,dashboards,sdk,data-manager
-  COUNTLY_CONFIG__MONGODB: ${COUNTLY_MONGODB_URI:-mongodb://root:Fengxiangbiao@mongoreplicab7e0673b0fc70.mongodb.cn-shanghai.ivolces.com:3717,mongoreplicab7e0673b0fc71.mongodb.cn-shanghai.ivolces.com:3717/?authSource=admin&replicaSet=rs-mongo-replica-b7e0673b0fc7&retryWrites=true}
   COUNTLY_CONFIG_HOSTNAME: ${COUNTLY_CONFIG_HOSTNAME:-localhost}
+  COUNTLY_CONFIG__MONGODB: "${COUNTLY_MONGODB_URI:-mongodb://countly:Fengxiangbiao%40123@mongoreplicab7e0673b0fc70.mongodb.cn-shanghai.ivolces.com:3717,mongoreplicab7e0673b0fc71.mongodb.cn-shanghai.ivolces.com:3717/countly?authSource=admin&replicaSet=rs-mongo-replica-b7e0673b0fc7&retryWrites=true}"
   COUNTLY_CONFIG__FILESTORAGE: gridfs
   COUNTLY_CONFIG_API_API_HOST: 0.0.0.0
   COUNTLY_CONFIG_FRONTEND_WEB_HOST: 0.0.0.0
