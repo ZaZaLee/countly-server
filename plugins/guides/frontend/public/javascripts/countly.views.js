@@ -256,6 +256,9 @@
                 catch (_) {
                     // do nothing, domain from config will be used as is
                 }
+                if (countlyGlobal.disableStatsCountly) {
+                    return;
+                }
                 let COUNTLY_STATS = Countly.init({
                     app_key: "e70ec21cbe19e799472dfaee0adb9223516d238f",
                     url: "https://stats.count.ly",

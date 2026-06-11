@@ -1978,7 +1978,7 @@
         // do nothing, domain from config will be used as is
     }
 
-    if (domain && domain !== "localhost") {
+    if (!countlyGlobal.disableStatsCountly && domain && domain !== "localhost" && (countlyGlobal.tracking.server_views || countlyGlobal.tracking.server_feedback)) {
         //initializing countly with params
         Countly.init({
             app_key: countlyGlobal.frontend_app,

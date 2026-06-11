@@ -903,6 +903,10 @@
 
                     return new Promise((resolve) => {
                         try {
+                            if (countlyGlobal.disableStatsCountly) {
+                                return resolve(defaultFlexUrl);
+                            }
+
                             if (!window.Countly) {
                                 CountlyHelpers.notify({
                                     title: "Error",
