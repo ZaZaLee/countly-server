@@ -29,7 +29,10 @@ fi
 
 no_proxy="${NO_PROXY:-${no_proxy:-$default_no_proxy}}"
 
-build_args=(--pull -f Dockerfile-core -t "$image_name")
+build_args=(-f Dockerfile-core -t "$image_name")
+if [[ "${COUNTLY_BUILD_PULL:-0}" == "1" ]]; then
+  build_args=(--pull "${build_args[@]}")
+fi
 if [[ -n "$proxy" ]]; then
   echo "Using build proxy: $proxy"
   build_args+=(--network=host)
