@@ -1,0 +1,12 @@
+ARG BASE_IMAGE=soda-countly:base
+FROM ${BASE_IMAGE}
+
+WORKDIR /opt/countly
+USER root
+
+COPY . .
+
+RUN chown -R countly:countly /opt/countly && \
+    mkdir -p /.npm && chown -R countly:countly /.npm
+
+CMD ["/sbin/my_init"]
