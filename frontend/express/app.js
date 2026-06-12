@@ -1019,6 +1019,8 @@ Promise.all([plugins.dbConnection(countlyConfig), plugins.dbConnection("countly_
                 var defaultApp = userOfApps[0];
                 var serverSideRendering = req.query.ssr;
                 _.extend(req.config, configs);
+                var disableStatsCountly = configs.offline_mode || process.env.COUNTLY_DISABLE_STATS_COUNTLY === "1" || process.env.COUNTLY_DISABLE_STATS_COUNTLY === "true";
+
                 var countlyGlobal = {
                     COUNTLY_CONTAINER: process.env.COUNTLY_CONTAINER,
                     countlyTitle: req.countly.title,
@@ -1049,7 +1051,7 @@ Promise.all([plugins.dbConnection(countlyConfig), plugins.dbConnection("countly_
                     countlyTypeTrack: COUNTLY_TRACK_TYPE,
                     countlyTypeCE: COUNTLY_TYPE_CE,
                     countly_domain,
-                    disableStatsCountly: process.env.COUNTLY_DISABLE_STATS_COUNTLY === "1" || process.env.COUNTLY_DISABLE_STATS_COUNTLY === "true",
+                    disableStatsCountly,
                     frontend_app: versionInfo.frontend_app || "9c28c347849f2c03caf1b091ec7be8def435e85e",
                     frontend_server: versionInfo.frontend_server || 'https://stats.count.ly/',
                     usermenu: {
@@ -1084,7 +1086,7 @@ Promise.all([plugins.dbConnection(countlyConfig), plugins.dbConnection("countly_
                     helpCenterLink: COUNTLY_HELPCENTER_LINK,
                     featureRequestLink: COUNTLY_FEATUREREQUEST_LINK,
                     countlyTypeTrack: COUNTLY_TRACK_TYPE,
-                    disableStatsCountly: process.env.COUNTLY_DISABLE_STATS_COUNTLY === "1" || process.env.COUNTLY_DISABLE_STATS_COUNTLY === "true",
+                    disableStatsCountly,
                     frontend_app: versionInfo.frontend_app,
                     frontend_server: versionInfo.frontend_server,
                     production: configs.production || false,

@@ -48,6 +48,10 @@ tracker.enable = function() {
         return;
     }
 
+    if (plugins.getConfig("api").offline_mode) {
+        return;
+    }
+
     var config = {
         app_key: server,
         url: url,

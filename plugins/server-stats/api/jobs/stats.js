@@ -141,6 +141,10 @@ class StatsJob extends job.Job {
     **/
     run(db, done) {
         pluginManager.loadConfigs(db, async function() {
+            if (pluginManager.getConfig("api").offline_mode) {
+                return done();
+            }
+
             let license = {};
             if (drill) {
                 try {
