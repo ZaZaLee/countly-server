@@ -1078,6 +1078,7 @@ Promise.all([plugins.dbConnection(countlyConfig), plugins.dbConnection("countly_
                     installed: req.session.install || false,
                     cpus: require('os').cpus().length,
                     countlyVersion: req.countly.version,
+                    assetVersion: process.env.COUNTLY_ASSET_VERSION || req.countly.version + "-soda.1",
                     countlyType: COUNTLY_TYPE_CE,
                     countlyTrial: COUNTLY_TRIAL,
                     countlyTypeName: overriddenCountlyNamedType,

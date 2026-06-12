@@ -8,6 +8,9 @@ var CMS_BASE_URL = "https://cms.count.ly/";
 var UPDATE_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours
 
 (function(countlyCMS, $) {
+    var isOfflineMode = function() {
+        return countlyGlobal && countlyGlobal.config && countlyGlobal.config.offline_mode;
+    };
 
     var transformCMSResponse = function(response, params) {
         var result = [];
@@ -29,6 +32,10 @@ var UPDATE_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours
     };
 
     countlyCMS.requestFromCMS = function(params) {
+        if (isOfflineMode()) {
+            return Promise.reject({ result: 'CMS requests are disabled in offline mode' });
+        }
+
         var pageSize = 100;
         var url = new URL('/api/' + params._id, CMS_BASE_URL);
         var results = [];
@@ -150,6 +157,10 @@ var UPDATE_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours
             if (options.query) {
                 params.query = JSON.stringify(options.query);
             }
+        }
+
+        if (isOfflineMode()) {
+            return countlyCMS.requestFromBackend(params);
         }
 
         if (options && options.CMSFirst) {
