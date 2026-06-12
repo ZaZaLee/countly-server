@@ -7,6 +7,7 @@ USER root
 COPY . .
 
 RUN chown -R countly:countly /opt/countly && \
-    mkdir -p /.npm && chown -R countly:countly /.npm
+    mkdir -p /.npm && chown -R countly:countly /.npm && \
+    npx grunt dist-all
 
 CMD ["/sbin/my_init"]
