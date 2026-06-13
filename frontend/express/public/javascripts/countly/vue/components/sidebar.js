@@ -598,7 +598,7 @@
                         {
                             name: "management",
                             icon: "cly-icon-sidebar-management",
-                            tooltip: "Management",
+                            tooltip: CV.i18n("sidebar.management"),
                             svg: ""
                         },
                         {
