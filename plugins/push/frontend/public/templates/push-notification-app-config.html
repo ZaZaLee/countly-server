@@ -120,7 +120,7 @@
             :title="i18n('push-notification.define-new-user-title')" 
             :saveButtonLabel="i18n('push-notification.add-test-users-label')">
             <template v-slot:default="formScope">
-                <cly-form-step id="step1" name="Define new user">
+                <cly-form-step id="step1" :name="i18n('push-notification.define-new-user-title')">
                     <cly-form-field name="definition" :label="i18n('push-notification.definition-type')">
                         <div class="bu-is-flex bu-is-align-items-center">
                             <el-radio class="is-autosized bu-is-justify-content-center" v-model="formScope.editedObject.definitionType" :label="AddTestUserDefinitionTypeEnum.USER_ID" border>
@@ -131,7 +131,7 @@
                             </el-radio>
                         </div>
                     </cly-form-field>
-                    <cly-form-field v-if="formScope.editedObject.definitionType === AddTestUserDefinitionTypeEnum.USER_ID" label="User ID" rules="required">
+                    <cly-form-field v-if="formScope.editedObject.definitionType === AddTestUserDefinitionTypeEnum.USER_ID" :label="i18n('push-notification.user-id')" rules="required">
                         <el-select
                             v-model="formScope.editedObject.userIds"
                             multiple

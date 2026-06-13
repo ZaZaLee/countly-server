@@ -316,7 +316,7 @@
                 <form>
                 <div class="cly-vue-drawer-step__section">
                     <div class="bu-py-1 bu-my-1 cly-vue-push-notification-drawer__radio-group-header text-medium font-weight-bold">
-                        <template v-if="type === TypeEnum.ONE_TIME">Delivery</template><template v-else>{{i18n('push-notification.set-start-date')}}</template>
+                        <template v-if="type === TypeEnum.ONE_TIME">{{i18n('push-notification.delivery')}}</template><template v-else>{{i18n('push-notification.set-start-date')}}</template>
                         <cly-tooltip-icon :tooltip="i18n('push-notification.set-start-date-tooltip')" icon="ion ion-help-circled"> </cly-tooltip-icon>
                     </div>
                     <div class="bu-level bu-is-flex-wrap-wrap">
@@ -800,7 +800,7 @@
                                 :description="i18n('push-notification.send-user-data-description')">
                                 <validation-provider rules="required" v-slot="validation">
                                     <cly-select-x
-                                        search-placeholder="Search in Properties"
+                                        :search-placeholder="i18n('push-notification.search-in-properties')"
                                         v-model="pushNotificationUnderEdit.settings.ios.userData"
                                         :placeholder="i18n('push-notification.select-user-data')"
                                         :width="320"
@@ -900,7 +900,7 @@
                                 :description="i18n('push-notification.send-user-data-description')">
                                 <validation-provider rules="required" v-slot="validation">
                                     <cly-select-x
-                                        search-placeholder="Search in Properties"
+                                        :search-placeholder="i18n('push-notification.search-in-properties')"
                                         v-model="pushNotificationUnderEdit.settings.android.userData"
                                         :placeholder="i18n('push-notification.select-user-data')"
                                         :width="320"
@@ -992,7 +992,7 @@
                         </div>
                         <div class="cly-vue-push-notification-drawer__section-group cly-vue-drawer-step__section bu-is-flex bu-is-flex-direction-column">
                             <template v-if="type === TypeEnum.ONE_TIME">
-                                <review-section-row label="Targeted users">
+                                <review-section-row :label="i18n('push-notification.targeted-users')">
                                     <template v-if="pushNotificationUnderEdit[TypeEnum.ONE_TIME].targeting === TargetingEnum.ALL">
                                         {{targetingOptions[pushNotificationUnderEdit.oneTime.targeting].label}}
                                     </template>

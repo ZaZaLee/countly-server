@@ -1,10 +1,10 @@
 <div style="height: 100%;">
     <div class="cly-vue-sidebar__header">
-        <span class="cly-vue-sidebar__header-title" data-test-id="dashboard-menu-title">Dashboards</span>
+        <span class="cly-vue-sidebar__header-title" data-test-id="dashboard-menu-title">{{i18nM('dashboards.default')}}</span>
         <span class="cly-vue-sidebar__header-button" v-if="canCreate">
             <el-button type="success" size="small" @click="addDashboard" data-test-id="add-dashboard-button">
                 <i class="ion-plus-circled"></i>
-                <span>New</span>
+                <span>{{i18nM('dashboards.add-widget-short')}}</span>
             </el-button>
         </span>
         <form>
@@ -13,7 +13,7 @@
                 test-id="dashboard-search-box"
                 autocomplete="off"
                 v-model="searchQuery"
-                placeholder="Search in Dashboards">
+                :placeholder="i18nM('dashboards.search-placeholder')">
                 <i slot="prefix" class="el-input__icon el-icon-search"></i>
             </el-input>
         </form>

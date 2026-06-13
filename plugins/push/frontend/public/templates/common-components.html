@@ -79,7 +79,7 @@
                     </template>
                     <template v-else>
                         <div class="bu-level bu-is-flex-direction-column bu-is-align-items-flex-start bu-mb-4">
-                            <div class="bu-py-1 bu-my-1 cly-vue-push-notification-drawer__input-label">Property</div>
+                            <div class="bu-py-1 bu-my-1 cly-vue-push-notification-drawer__input-label">{{i18n('push-notification.property')}}</div>
                             <validation-provider vid="userPropertyValidator" v-slot="validation" rules="required">
                                 <cly-select-x
                                     :search-placeholder="i18n('push-notification.search-in-properties')"
@@ -104,7 +104,7 @@
                         <div class="bu-level bu-is-flex-direction-column bu-is-align-items-flex-start">
                             <div class="bu-py-1 bu-my-1 cly-vue-push-notification-drawer__input-label">{{i18n('push-notification.fallback-value')}}</div>
                             <validation-provider vid="fallbackValueValidator" v-slot="validation" :rules="{push_notification_fallback:true}" style="width:100%">
-                                <el-input v-tooltip="i18n('push-notification.fallback-value-desc')" :value="userProperty.fallback" @input="onFallback" placeholder="Enter fallback value" :class="{'is-error': validation.errors.length > 0}" autocomplete="off"> </el-input>
+                                <el-input v-tooltip="i18n('push-notification.fallback-value-desc')" :value="userProperty.fallback" @input="onFallback" :placeholder="i18n('push-notification.enter-fallback-value')" :class="{'is-error': validation.errors.length > 0}" autocomplete="off"> </el-input>
                             </validation-provider>
                         </div>
                     </div>
@@ -500,4 +500,3 @@
         </div>
     </el-card>
 </script>
-
