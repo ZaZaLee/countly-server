@@ -4,7 +4,7 @@
   >
     <template v-slot:header-right>
       <div class="bu-level-item" v-if="hasCreateRight">
-        <el-button data-test-id="add-condition-button" @click="create" type="success" size="small" icon="el-icon-circle-plus">Add Condition</el-button>
+        <el-button data-test-id="add-condition-button" @click="create" type="success" size="small" icon="el-icon-circle-plus">{{i18n('remote-config.add-condition-title')}}</el-button>
       </div>
     </template>
   </cly-header>
@@ -31,7 +31,7 @@
         </el-table-column>
         <el-table-column test-id="condition" prop="seed_value" :label="i18n('remote-config.seed-value')">
           <template v-slot:default="rowScope">
-            <div :data-test-id="'datatable-condition-seed-value-' + rowScope.$index"> {{rowScope.row.seed_value || "Default"}}</div>
+            <div :data-test-id="'datatable-condition-seed-value-' + rowScope.$index"> {{rowScope.row.seed_value || i18n('remote-config.seed-value-default')}}</div>
           </template>
         </el-table-column>
         <el-table-column type="options" v-if="hasUpdateRight || hasDeleteRight">
