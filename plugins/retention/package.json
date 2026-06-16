@@ -1,0 +1,14 @@
+{
+  "name": "countly-retention",
+  "title": "Retention",
+  "version": "1.0.0",
+  "description": "Retention and payer retention analytics",
+  "author": "Countly",
+  "keywords": [
+    "countly",
+    "retention",
+    "analytics"
+  ],
+  "dependencies": {},
+  "private": true
+}

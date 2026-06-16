@@ -1,0 +1,14 @@
+{
+  "name": "countly-revenue",
+  "title": "Revenue",
+  "version": "1.0.0",
+  "description": "Revenue analytics",
+  "author": "Countly",
+  "keywords": [
+    "countly",
+    "revenue",
+    "analytics"
+  ],
+  "dependencies": {},
+  "private": true
+}
