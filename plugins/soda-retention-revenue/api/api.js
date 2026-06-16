@@ -11,6 +11,7 @@ const PLUGIN_NAME = 'soda-retention-revenue';
 const COLLECTION_ACTIVITY = 'soda_user_activity_daily';
 const COLLECTION_FIRSTS = 'soda_user_firsts';
 const COLLECTION_PAYMENTS = 'soda_pay_order_fact';
+const COLLECTION_REVENUE_AGGREGATES = 'soda_revenue_daily_aggregate';
 
 const DEFAULT_DAYS = [1, 2, 3, 7, 14, 30];
 const MAX_RANGE_DAYS = 120;
@@ -353,12 +354,17 @@ async function handleRevenue(params) {
             app_id: appId,
             date: {$gte: range.from, $lte: range.to}
         };
+        const aggregateMatch = {
+            app_id: appId,
+            date: {$gte: range.from, $lte: range.to}
+        };
         if (channel) {
             paymentMatch.channel = channel + '';
+            aggregateMatch.channel = channel + '';
         }
 
         const idExpr = groupBy === 'iap_id' ? '$iap_id' : (groupBy === 'channel' ? '$channel' : '$date');
-        const revenueRows = await common.db.collection(COLLECTION_PAYMENTS).aggregate([
+        const factRows = await common.db.collection(COLLECTION_PAYMENTS).aggregate([
             {$match: paymentMatch},
             {$group: {
                 _id: idExpr,
@@ -380,6 +386,32 @@ async function handleRevenue(params) {
             {$sort: {key: 1}}
         ], {allowDiskUse: true}).toArray();
 
+        const aggregateRowsRaw = groupBy !== 'date' ? [] : await common.db.collection(COLLECTION_REVENUE_AGGREGATES).aggregate([
+            {$match: aggregateMatch},
+            {$group: {
+                _id: '$date',
+                revenue: {$sum: '$revenue'},
+                amount_fen: {$sum: '$amount_fen'},
+                pay_orders: {$sum: '$pay_orders'}
+            }},
+            {$project: {
+                _id: 0,
+                key: '$_id',
+                revenue: 1,
+                amount_fen: 1,
+                pay_orders: 1,
+                pay_users: {$literal: 0},
+                fallback_orders: '$pay_orders',
+                aggregate_only: {$literal: true}
+            }},
+            {$sort: {key: 1}}
+        ], {allowDiskUse: true}).toArray();
+        const factKeys = {};
+        factRows.forEach((row) => {
+            factKeys[row.key || ''] = true;
+        });
+        const aggregateRows = aggregateRowsRaw.filter((row) => !factKeys[row.key || '']);
+
         const activeUsersByDate = await getActivityUsersByDate(appId, range.from, range.to, 'active_by_any_event', channel);
         const activeUsers = countUnion(activeUsersByDate);
         let totalRevenue = 0;
@@ -398,7 +430,13 @@ async function handleRevenue(params) {
         });
 
         const payUsers = Object.keys(payerSet).length;
-        const rows = revenueRows.map((row) => {
+        aggregateRows.forEach((row) => {
+            totalRevenue += toNumber(row.revenue);
+            totalOrders += toNumber(row.pay_orders);
+            totalFallbackOrders += toNumber(row.pay_orders);
+        });
+
+        const rows = mergeRevenueRows(factRows, aggregateRows).map((row) => {
             row.revenue = round(row.revenue || 0, 2);
             row.arppu = row.pay_users ? round(row.revenue / row.pay_users, 2) : 0;
             return row;
@@ -417,7 +455,8 @@ async function handleRevenue(params) {
                 arpu: activeUsers ? round(totalRevenue / activeUsers, 2) : 0,
                 arppu: payUsers ? round(totalRevenue / payUsers, 2) : 0,
                 pay_rate: activeUsers ? round(payUsers * 100 / activeUsers, 2) : 0,
-                fallback_orders: totalFallbackOrders
+                fallback_orders: totalFallbackOrders,
+                aggregate_only_orders: aggregateRows.reduce((sum, row) => sum + toNumber(row.pay_orders), 0)
             }
         });
     }
@@ -474,6 +513,8 @@ async function handleBootstrap(params) {
             }
         });
 
+        const revenueAggregate = await bootstrapRevenueAggregates(params, appId, range);
+
         await Promise.all(writes);
 
         common.returnOutput(params, {
@@ -482,6 +523,9 @@ async function handleBootstrap(params) {
             scanned_users: users.length,
             activity_rows: activityRows,
             first_rows: firstRows,
+            revenue_rows: revenueAggregate.rows,
+            revenue: revenueAggregate.revenue,
+            pay_orders: revenueAggregate.pay_orders,
             limit: 50000
         });
     }
@@ -558,6 +602,72 @@ function upsertBootstrapActivity(appId, uid, date, ts, eventKey, channel) {
     });
 
     return Promise.all([activityWrite, firstWrite]);
+}
+
+async function bootstrapRevenueAggregates(params, appId, range) {
+    const config = getConfig(params);
+    const collectionName = crypto.createHash('sha1').update(config.payment_success_event + appId).digest('hex');
+    const docs = await common.db.collection('events_data').find({
+        _id: {$regex: '^' + escapeRegExp(appId + '_' + collectionName + '_no-segment_')},
+        a: appId + '',
+        e: config.payment_success_event,
+        s: 'no-segment'
+    }, {d: 1}).toArray();
+
+    const byDate = {};
+    docs.forEach((doc) => {
+        Object.keys(doc.d || {}).forEach((dayKey) => {
+            if (!/^\d{4}\.\d{1,2}\.\d{1,2}$/.test(dayKey)) {
+                return;
+            }
+            const date = moment.utc(dayKey, 'YYYY.M.D').format('YYYY-MM-DD');
+            if (date < range.from || date > range.to) {
+                return;
+            }
+            const dayData = doc.d[dayKey] || {};
+            const revenue = toNumber(dayData[common.dbMap.sum]);
+            const payOrders = toNumber(dayData[common.dbMap.count]);
+            if (!revenue && !payOrders) {
+                return;
+            }
+            if (!byDate[date]) {
+                byDate[date] = {date: date, revenue: 0, pay_orders: 0};
+            }
+            byDate[date].revenue += revenue;
+            byDate[date].pay_orders += payOrders;
+        });
+    });
+
+    const rows = Object.keys(byDate).sort().map((date) => byDate[date]);
+    let totalRevenue = 0;
+    let totalOrders = 0;
+
+    await Promise.all(rows.map((row) => {
+        totalRevenue += row.revenue;
+        totalOrders += row.pay_orders;
+        const id = [appId, row.date, 'all'].join(':');
+        return common.db.collection(COLLECTION_REVENUE_AGGREGATES).updateOne(
+            {_id: id},
+            {$set: {
+                _id: id,
+                app_id: appId + '',
+                date: row.date,
+                channel: '',
+                source: 'events_data',
+                revenue: row.revenue,
+                amount_fen: Math.round(row.revenue * 100),
+                pay_orders: row.pay_orders,
+                updated_at: Date.now()
+            }},
+            {upsert: true}
+        );
+    }));
+
+    return {
+        rows: rows.length,
+        revenue: round(totalRevenue, 2),
+        pay_orders: totalOrders
+    };
 }
 
 async function getNewActiveCohorts(appId, from, to, channel) {
@@ -650,6 +760,26 @@ async function getPaymentUsersByDate(appId, from, to, channel) {
         ret[row.date] = row.users || [];
     });
     return ret;
+}
+
+function mergeRevenueRows(factRows, aggregateRows) {
+    const byKey = {};
+    (factRows || []).forEach((row) => {
+        byKey[row.key || ''] = Object.assign({}, row);
+    });
+    (aggregateRows || []).forEach((row) => {
+        const key = row.key || '';
+        if (!byKey[key]) {
+            byKey[key] = Object.assign({}, row);
+            return;
+        }
+        byKey[key].revenue = toNumber(byKey[key].revenue) + toNumber(row.revenue);
+        byKey[key].amount_fen = toNumber(byKey[key].amount_fen) + toNumber(row.amount_fen);
+        byKey[key].pay_orders = toNumber(byKey[key].pay_orders) + toNumber(row.pay_orders);
+        byKey[key].fallback_orders = toNumber(byKey[key].fallback_orders) + toNumber(row.fallback_orders);
+        byKey[key].aggregate_only = byKey[key].aggregate_only || row.aggregate_only;
+    });
+    return Object.keys(byKey).sort().map((key) => byKey[key]);
 }
 
 function getUid(params) {
@@ -759,6 +889,10 @@ function toNumber(value) {
 
 function fingerprint(value) {
     return crypto.createHash('sha1').update(JSON.stringify(value || {})).digest('hex').slice(0, 12);
+}
+
+function escapeRegExp(value) {
+    return (value + '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function makeSet(values) {

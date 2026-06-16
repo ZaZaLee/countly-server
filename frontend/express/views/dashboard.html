@@ -114,7 +114,8 @@
         <link rel="stylesheet" href="<%- cdn %>stylesheets/vue/element-tiptap.css?<%= assetVersion %>" />
         <% if (stylesheets) { %>
 			<% for(var i=0, l=stylesheets.length; i<l; i++) {%>
-        <link rel="stylesheet" href="<%- cdn %><%= stylesheets[i] %>?<%= assetVersion %>" />
+				<% var stylesheetPath = stylesheets[i].path || stylesheets[i]; var stylesheetVersion = stylesheets[i].version || assetVersion; %>
+        <link rel="stylesheet" href="<%- cdn %><%= stylesheetPath %>?<%= stylesheetVersion %>" />
 			<% } %>
 		<% } %>
 	    <!-- DEVELOPMENT -->
@@ -1907,7 +1908,8 @@
 
         <% if (javascripts) { %>
 			<% for(var i=0, l=javascripts.length; i<l; i++) {%>
-				<script language="javascript" type="text/javascript" src="<%- cdn %><%= javascripts[i] %>?<%= assetVersion %>"></script>
+				<% var javascriptPath = javascripts[i].path || javascripts[i]; var javascriptVersion = javascripts[i].version || assetVersion; %>
+				<script language="javascript" type="text/javascript" src="<%- cdn %><%= javascriptPath %>?<%= javascriptVersion %>"></script>
 			<% } %>
 		<% } %>
 

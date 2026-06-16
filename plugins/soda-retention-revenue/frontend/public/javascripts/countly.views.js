@@ -1,9 +1,13 @@
 /*global CV,countlyVue,countlySodaRetentionRevenue*/
 (function() {
     var featureName = "soda_retention_revenue";
+    var currentScript = document.currentScript;
+    var templateVersion = currentScript && currentScript.src && currentScript.src.indexOf("?") !== -1
+        ? currentScript.src.split("?").slice(1).join("?")
+        : ((window.countlyGlobal && (window.countlyGlobal.assetVersion || window.countlyGlobal.countlyVersion)) || "1");
 
     var SodaRetentionRevenueView = countlyVue.views.create({
-        template: CV.T('/soda-retention-revenue/templates/soda-retention-revenue.html'),
+        template: CV.T('/soda-retention-revenue/templates/soda-retention-revenue.html?v=' + encodeURIComponent(templateVersion)),
         mixins: [countlyVue.mixins.commonFormatters],
         computed: {
             filters: {
@@ -45,13 +49,13 @@
                     },
                     yAxis: [{}, {}],
                     series: [{
-                        name: 'Revenue',
+                        name: CV.i18n('soda-retention-revenue.chart.revenue'),
                         type: 'bar',
                         data: this.revenueRows.map(function(row) {
                             return row.revenue || 0;
                         })
                     }, {
-                        name: 'Payers',
+                        name: CV.i18n('soda-retention-revenue.chart.payers'),
                         type: 'line',
                         yAxisIndex: 1,
                         data: this.revenueRows.map(function(row) {
@@ -61,13 +65,13 @@
                 };
             },
             retentionChartOptions: function() {
-                return this.makeRetentionChartOptions(this.retentionRows, 'Player Retention');
+                return this.makeRetentionChartOptions(this.retentionRows, CV.i18n('soda-retention-revenue.chart.player-retention'));
             },
             payerRetentionChartOptions: function() {
-                return this.makeRetentionChartOptions(this.payerRetentionRows, 'Payer Active Retention');
+                return this.makeRetentionChartOptions(this.payerRetentionRows, CV.i18n('soda-retention-revenue.chart.payer-active-retention'));
             },
             repeatPayRetentionChartOptions: function() {
-                return this.makeRetentionChartOptions(this.repeatPayRetentionRows, 'Repeat Pay Retention');
+                return this.makeRetentionChartOptions(this.repeatPayRetentionRows, CV.i18n('soda-retention-revenue.chart.repeat-pay-retention'));
             },
             isLoading: function() {
                 return this.$store.getters['countlySodaRetentionRevenue/isLoading'];

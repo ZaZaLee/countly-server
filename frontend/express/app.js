@@ -10,6 +10,15 @@ var fs = require('fs');
 var path = require('path');
 var IS_FLEX = false;
 
+function getStaticResourceVersion(resourcePath, fallbackVersion) {
+    try {
+        return fallbackVersion + "-" + fs.statSync(resourcePath).mtimeMs.toString(36).replace(/\W/g, "");
+    }
+    catch (e) {
+        return fallbackVersion;
+    }
+}
+
 if (fs.existsSync(path.resolve('/opt/deployment_env.json'))) {
     var deploymentConf = fs.readFileSync('/opt/deployment_env.json', 'utf8');
     try {
@@ -1048,6 +1057,7 @@ Promise.all([plugins.dbConnection(countlyConfig), plugins.dbConnection("countly_
                     ssr: serverSideRendering,
                     timezones: timezones,
                     countlyTypeName: overriddenCountlyNamedType,
+                    assetVersion: process.env.COUNTLY_ASSET_VERSION || req.countly.version + "-soda.1",
                     countlyTypeTrack: COUNTLY_TRACK_TYPE,
                     countlyTypeCE: COUNTLY_TYPE_CE,
                     countly_domain,
@@ -1119,15 +1129,25 @@ Promise.all([plugins.dbConnection(countlyConfig), plugins.dbConnection("countly_
                 }
                 plgns.forEach(plugin => {
                     try {
-                        let contents = fs.readdirSync(__dirname + `/../../plugins/${common.sanitizeFilename(plugin)}/frontend/public/javascripts`) || [];
-                        toDashboard.javascripts.push.apply(toDashboard.javascripts, contents.filter(n => typeof n === 'string' && n.includes('.js') && n.length > 3 && n.indexOf('.js') === n.length - 3).map(n => `${plugin}/javascripts/${n}`));
+                        const pluginName = common.sanitizeFilename(plugin);
+                        const pluginJsDir = path.resolve(__dirname, `../../plugins/${pluginName}/frontend/public/javascripts`);
+                        let contents = fs.readdirSync(pluginJsDir) || [];
+                        toDashboard.javascripts.push.apply(toDashboard.javascripts, contents.filter(n => typeof n === 'string' && n.includes('.js') && n.length > 3 && n.indexOf('.js') === n.length - 3).map(n => ({
+                            path: `${plugin}/javascripts/${n}`,
+                            version: getStaticResourceVersion(path.resolve(pluginJsDir, n), toDashboard.assetVersion)
+                        })));
                     }
                     catch (e) {
                         console.log('Error while reading folder of plugin %s: %j', plugin, e.stack);
                     }
                     try {
-                        let contents = fs.readdirSync(__dirname + `/../../plugins/${common.sanitizeFilename(plugin)}/frontend/public/stylesheets`) || [];
-                        toDashboard.stylesheets.push.apply(toDashboard.stylesheets, contents.filter(n => typeof n === 'string' && n.includes('.css') && n.length > 4 && n.indexOf('.css') === n.length - 4).map(n => `${plugin}/stylesheets/${n}`));
+                        const pluginName = common.sanitizeFilename(plugin);
+                        const pluginCssDir = path.resolve(__dirname, `../../plugins/${pluginName}/frontend/public/stylesheets`);
+                        let contents = fs.readdirSync(pluginCssDir) || [];
+                        toDashboard.stylesheets.push.apply(toDashboard.stylesheets, contents.filter(n => typeof n === 'string' && n.includes('.css') && n.length > 4 && n.indexOf('.css') === n.length - 4).map(n => ({
+                            path: `${plugin}/stylesheets/${n}`,
+                            version: getStaticResourceVersion(path.resolve(pluginCssDir, n), toDashboard.assetVersion)
+                        })));
                     }
                     catch (e) {
                         console.log('Error while reading folder of plugin %s: %j', plugin, e.stack);
