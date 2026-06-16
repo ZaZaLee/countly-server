@@ -1,0 +1,65 @@
+<div v-bind:class="[componentId]">
+    <cly-header :title="i18n('soda-retention-revenue.title')" :tooltip="{description: i18n('soda-retention-revenue.description')}"></cly-header>
+    <cly-main>
+        <cly-section>
+            <cly-datatable-n :rows="revenueRows" :force-loading="isLoading">
+                <template v-slot="scope">
+                    <el-table-column prop="key" label="Group"></el-table-column>
+                    <el-table-column prop="revenue" label="Revenue"></el-table-column>
+                    <el-table-column prop="pay_orders" label="Orders"></el-table-column>
+                    <el-table-column prop="pay_users" label="Payers"></el-table-column>
+                    <el-table-column prop="arppu" label="ARPPU"></el-table-column>
+                </template>
+            </cly-datatable-n>
+        </cly-section>
+        <cly-section>
+            <cly-datatable-n :rows="retentionRows" :force-loading="isLoading">
+                <template v-slot="scope">
+                    <el-table-column prop="date" label="Cohort Date"></el-table-column>
+                    <el-table-column prop="cohort_users" label="Users"></el-table-column>
+                    <el-table-column prop="d1_rate" label="D1"></el-table-column>
+                    <el-table-column prop="d2_rate" label="D2"></el-table-column>
+                    <el-table-column prop="d3_rate" label="D3"></el-table-column>
+                    <el-table-column prop="d7_rate" label="D7"></el-table-column>
+                    <el-table-column prop="d14_rate" label="D14"></el-table-column>
+                    <el-table-column prop="d30_rate" label="D30"></el-table-column>
+                </template>
+            </cly-datatable-n>
+        </cly-section>
+        <cly-section>
+            <cly-datatable-n :rows="payerRetentionRows" :force-loading="isLoading">
+                <template v-slot="scope">
+                    <el-table-column prop="date" label="Payer Active Cohort"></el-table-column>
+                    <el-table-column prop="cohort_users" label="Payers"></el-table-column>
+                    <el-table-column prop="d1_rate" label="D1"></el-table-column>
+                    <el-table-column prop="d2_rate" label="D2"></el-table-column>
+                    <el-table-column prop="d3_rate" label="D3"></el-table-column>
+                    <el-table-column prop="d7_rate" label="D7"></el-table-column>
+                    <el-table-column prop="d14_rate" label="D14"></el-table-column>
+                    <el-table-column prop="d30_rate" label="D30"></el-table-column>
+                </template>
+            </cly-datatable-n>
+        </cly-section>
+        <cly-section>
+            <cly-datatable-n :rows="repeatPayRetentionRows" :force-loading="isLoading">
+                <template v-slot="scope">
+                    <el-table-column prop="date" label="Repeat Pay Cohort"></el-table-column>
+                    <el-table-column prop="cohort_users" label="Payers"></el-table-column>
+                    <el-table-column prop="d1_rate" label="D1"></el-table-column>
+                    <el-table-column prop="d2_rate" label="D2"></el-table-column>
+                    <el-table-column prop="d3_rate" label="D3"></el-table-column>
+                    <el-table-column prop="d7_rate" label="D7"></el-table-column>
+                    <el-table-column prop="d14_rate" label="D14"></el-table-column>
+                    <el-table-column prop="d30_rate" label="D30"></el-table-column>
+                </template>
+            </cly-datatable-n>
+        </cly-section>
+        <cly-section>
+            <div class="soda-retention-revenue-summary">
+                <div>Revenue: {{formatNumber(revenueSummary.revenue || 0)}}</div>
+                <div>Pay Users: {{formatNumber(revenueSummary.pay_users || 0)}}</div>
+                <div>Pay Rate: {{revenueSummary.pay_rate || 0}}%</div>
+            </div>
+        </cly-section>
+    </cly-main>
+</div>
