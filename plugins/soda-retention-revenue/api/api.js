@@ -95,6 +95,14 @@ const MAX_RANGE_DAYS = 120;
         });
         return true;
     });
+
+    plugins.register('/o/soda-retention-revenue/bootstrap', function(ob) {
+        const params = ob.params;
+        validateRead(params, FEATURE_NAME, function() {
+            handleBootstrap(params);
+        });
+        return true;
+    });
 }());
 
 function processEvent(params, currEvent) {
@@ -417,6 +425,139 @@ async function handleRevenue(params) {
         common.log('soda-retention-revenue').e('Revenue query failed', err);
         common.returnMessage(params, 500, 'Revenue query failed');
     }
+}
+
+async function handleBootstrap(params) {
+    const appId = params.qstring.app_id + '';
+    const range = parseRange(params);
+
+    if (!range.ok) {
+        common.returnMessage(params, 400, range.error);
+        return;
+    }
+
+    try {
+        const fromTs = moment.tz(range.from, 'YYYY-MM-DD', params.appTimezone || 'UTC').startOf('day').unix();
+        const toTs = moment.tz(range.to, 'YYYY-MM-DD', params.appTimezone || 'UTC').endOf('day').unix();
+        const users = await common.db.collection('app_users' + appId).find({
+            $or: [
+                {fs: {$gte: fromTs, $lte: toTs}},
+                {ls: {$gte: fromTs, $lte: toTs}},
+                {lac: {$gte: fromTs, $lte: toTs}}
+            ]
+        }, {uid: 1, did: 1, fs: 1, ls: 1, lac: 1, c: 1}).limit(50000).toArray();
+
+        let activityRows = 0;
+        let firstRows = 0;
+        const writes = [];
+        users.forEach((user) => {
+            const uid = (user.uid || user.did || user._id || '') + '';
+            if (!uid) {
+                return;
+            }
+
+            const firstTs = toNumber(user.fs || user.lac || user.ls);
+            const lastTs = toNumber(user.ls || user.lac || user.fs);
+            const firstDate = firstTs ? formatDate(params.appTimezone, firstTs) : null;
+            const lastDate = lastTs ? formatDate(params.appTimezone, lastTs) : null;
+            const channel = user.c ? user.c + '' : '';
+
+            if (firstDate && firstDate >= range.from && firstDate <= range.to) {
+                writes.push(upsertBootstrapActivity(appId, uid, firstDate, firstTs, '[CLY]_bootstrap_first_seen', channel));
+                firstRows++;
+                activityRows++;
+            }
+
+            if (lastDate && lastDate >= range.from && lastDate <= range.to && lastDate !== firstDate) {
+                writes.push(upsertBootstrapActivity(appId, uid, lastDate, lastTs, '[CLY]_bootstrap_last_seen', channel));
+                activityRows++;
+            }
+        });
+
+        await Promise.all(writes);
+
+        common.returnOutput(params, {
+            from: range.from,
+            to: range.to,
+            scanned_users: users.length,
+            activity_rows: activityRows,
+            first_rows: firstRows,
+            limit: 50000
+        });
+    }
+    catch (err) {
+        common.log('soda-retention-revenue').e('Bootstrap query failed', err);
+        common.returnMessage(params, 500, 'Bootstrap query failed');
+    }
+}
+
+function upsertBootstrapActivity(appId, uid, date, ts, eventKey, channel) {
+    const activityId = [appId, uid, date].join(':');
+    const activitySet = {
+        _id: activityId,
+        app_id: appId + '',
+        uid: uid + '',
+        date: date,
+        active_by_any_event: 1,
+        updated_at: Date.now()
+    };
+    if (channel) {
+        activitySet.channel = channel + '';
+    }
+
+    const activityWrite = new Promise((resolve, reject) => {
+        common.db.collection(COLLECTION_ACTIVITY).updateOne(
+            {_id: activityId},
+            {
+                $set: activitySet,
+                $setOnInsert: {created_at: Date.now(), first_event: eventKey},
+                $inc: {event_count: 1},
+                $min: {first_ts: ts},
+                $max: {last_ts: ts, active_by_any_event: 1, active_by_login: 0}
+            },
+            {upsert: true},
+            function(err) {
+                if (err) {
+                    reject(err);
+                }
+                else {
+                    resolve();
+                }
+            }
+        );
+    });
+
+    const firstId = [appId, uid].join(':');
+    const firstSet = {
+        _id: firstId,
+        app_id: appId + '',
+        uid: uid + '',
+        updated_at: Date.now()
+    };
+    if (channel) {
+        firstSet.channel = channel + '';
+    }
+    const firstWrite = new Promise((resolve, reject) => {
+        common.db.collection(COLLECTION_FIRSTS).updateOne(
+            {_id: firstId},
+            {
+                $set: firstSet,
+                $setOnInsert: {created_at: Date.now(), first_active_date: date},
+                $min: {first_active_ts: ts}
+            },
+            {upsert: true},
+            function(err) {
+                if (err) {
+                    reject(err);
+                }
+                else {
+                    resolve();
+                }
+            }
+        );
+    });
+
+    return Promise.all([activityWrite, firstWrite]);
 }
 
 async function getNewActiveCohorts(appId, from, to, channel) {
