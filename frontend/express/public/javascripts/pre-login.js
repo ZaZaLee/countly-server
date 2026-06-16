@@ -1,6 +1,8 @@
 /*global store, jQuery, $, document, countlyGlobal, filterXSS */
 /*exported showMessage, addLocalization */
 
+var DEFAULT_LANG = "zh";
+
 /**
  * Javascript file loaded on pre login pages with some handy global functions
  * @name Pre Login
@@ -68,7 +70,7 @@ function encodeSomeHtml(html, options) {
 */
 function addLocalization(name, path, callback) {
     var langs = jQuery.i18n.map;
-    var lang = store.get("countly_lang") || "en";
+    var lang = store.get("countly_lang") || DEFAULT_LANG;
     jQuery.i18n.properties({
         name: name,
         path: [path],
@@ -110,12 +112,12 @@ function addLocalization(name, path, callback) {
 
 $(document).ready(function() {
 
-    var lang = "en";
+    var lang = DEFAULT_LANG;
     if (store.get("countly_lang")) {
         lang = store.get("countly_lang");
-        $("#active-lang").text(lang.toUpperCase());
-        $("#form-lang").val(lang);
     }
+    $("#active-lang").text(lang.toUpperCase());
+    $("#form-lang").val(lang);
 
     jQuery.i18n.properties({
         name: 'pre-login',

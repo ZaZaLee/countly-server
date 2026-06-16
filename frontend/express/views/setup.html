@@ -32,7 +32,7 @@
     <div class="wrapper">
         <div id="top-container">
             <div class="top-button" id="select-lang" data-test-id="select-lang-button">
-                <div id="active-lang" data-test-id="active-lang">EN</div>
+                <div id="active-lang" data-test-id="active-lang">ZH</div>
                 <div id="langs">
                     <div class="group">
                     <% for(var i=0, l=(languages.length/2); i<l; i++) {%>
@@ -93,7 +93,7 @@
                 <% } %>
                 <div>
                     <input type="hidden" value="<%= csrf %>" name="_csrf" />
-                    <input type="hidden" value="en" name="lang" id="form-lang" data-test-id="form-lang"/>
+                    <input type="hidden" value="zh" name="lang" id="form-lang" data-test-id="form-lang"/>
                     <input type="hidden" value="true" name="createDemoApp" id="create-demo-app" data-test-id="create-demo-app"/>
                     <input id="login-button" data-test-id="continue-demo-app-button" value="Create account" type="submit" data-localize="setup.continue-demo-app" style="margin-top: 24px;"/>
                     <button id="alt-login-button" data-test-id="continue-own-app-button" data-localize="setup.continue-own-app"></button>

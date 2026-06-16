@@ -57,7 +57,6 @@
             <div v-if="isCommunityEdition" class="cly-vue-sidebar__version" data-test-id="sidebar-menu-version">
                 <div class="cly-vue-sidebar__version__banner">
                     <div class="text">{{i18n('sidebar.banner.text')}}</div>
-                    <el-button class="button" type="success" @click="handleButtonClick">{{i18n('sidebar.banner.upgrade-button')}}</el-button>
                 </div>
             </div>
             <a v-else :href="countlySidebarVersionPath">

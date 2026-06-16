@@ -335,6 +335,7 @@ membersUtility.login = function(req, res, callback) {
                 }
                 if (req.body.lang && req.body.lang !== member.lang) {
                     update.lang = req.body.lang;
+                    member.lang = req.body.lang;
                 }
 
                 membersUtility.db.collection('members').update({_id: member._id}, {$set: update}, function() {});
@@ -742,7 +743,7 @@ membersUtility.checkUsername = function(username, callback) {
  * Sends user password reseting information to given e-mail.
  * @param {object} req - request object.
  * @param {string} req.body.email - mandatory. User email.
- * @param {string} req.body.lang - optional. Language.(default "en"  - english)
+ * @param {string} req.body.lang - optional. Language.(default "zh"  - chinese)
  * @param {function} callback  - function with one return value. Returns member object if successful.
  * @example
  * membersUtility.forgot(req, function(member) {
@@ -764,7 +765,7 @@ membersUtility.forgot = function(req, callback) {
             if (member) {
                 var timestamp = Math.round(new Date().getTime() / 1000),
                     prid = crypto.randomBytes(32).toString('hex');
-                member.lang = member.lang || req.body.lang || "en";
+                member.lang = member.lang || req.body.lang || "zh";
                 membersUtility.db.collection('password_reset').insert({"prid": prid, "user_id": member._id, "timestamp": timestamp}, {safe: true}, function() {
                     countlyMail.sendPasswordResetInfo(member, prid);
                     plugins.callMethod("passwordRequest", {req: req, data: req.body}); //used in systemlogs
