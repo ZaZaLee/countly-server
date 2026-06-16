@@ -81,14 +81,6 @@
                 days: filters.days.join(','),
                 channel: filters.channel || ''
             }).then(mapRetentionResponse);
-        },
-        bootstrap: function(filters) {
-            filters = normalizeFilters(filters);
-            return fetchApi('/o/retention/bootstrap', {
-                app_id: countlyCommon.ACTIVE_APP_ID,
-                from: filters.from,
-                to: filters.to
-            });
         }
     };
 
@@ -98,8 +90,7 @@
                 filters: defaultFilters(),
                 retention: {rows: [], type: 'active'},
                 payerRetention: {rows: [], type: 'payer'},
-                repeatPayRetention: {rows: [], type: 'payer-repeat-pay'},
-                bootstrapResult: null
+                repeatPayRetention: {rows: [], type: 'payer-repeat-pay'}
             };
         };
 
@@ -125,16 +116,6 @@
                     }).catch(function(error) {
                         context.dispatch('onFetchError', {error: error, useLoader: useLoader});
                     });
-                },
-                bootstrap: function(context) {
-                    context.dispatch('onFetchInit', {useLoader: true});
-                    return countlyRetention.service.bootstrap(context.state.filters)
-                        .then(function(response) {
-                            context.commit('setBootstrapResult', response);
-                            return context.dispatch('fetchAll', true);
-                        }).catch(function(error) {
-                            context.dispatch('onFetchError', {error: error, useLoader: true});
-                        });
                 }
             },
             mutations: {
@@ -149,9 +130,6 @@
                 },
                 setRepeatPayRetention: function(state, value) {
                     state.repeatPayRetention = value;
-                },
-                setBootstrapResult: function(state, value) {
-                    state.bootstrapResult = value;
                 }
             },
             submodules: [countlyVue.vuex.FetchMixin()]

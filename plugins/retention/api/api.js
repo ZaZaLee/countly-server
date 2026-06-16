@@ -3,6 +3,7 @@
 const common = require('../../../api/utils/common.js'),
     plugins = require('../../pluginManager.js'),
     moment = require('moment-timezone'),
+    crypto = require('crypto'),
     { validateRead } = require('../../../api/utils/rights.js');
 
 const FEATURE_NAME = 'retention';
@@ -87,13 +88,6 @@ const MAX_RANGE_DAYS = 120;
         return true;
     });
 
-    plugins.register('/o/retention/bootstrap', function(ob) {
-        const params = ob.params;
-        validateRead(params, FEATURE_NAME, function() {
-            handleBootstrap(params);
-        });
-        return true;
-    });
 }());
 
 function processEvent(params, currEvent) {
@@ -263,6 +257,7 @@ async function handleRetention(params, type) {
     const channel = params.qstring.channel;
     const cohortType = params.qstring.cohort_type || 'new_active';
     const activityField = mode === 'login' ? 'active_by_login' : 'active_by_any_event';
+    const timezone = params.appTimezone || 'UTC';
 
     if (!range.ok) {
         common.returnMessage(params, 400, range.error);
@@ -275,10 +270,10 @@ async function handleRetention(params, type) {
             cohorts = await getPayerCohorts(appId, range.from, range.to, channel);
         }
         else if (cohortType === 'active') {
-            cohorts = await getActiveCohorts(appId, range.from, range.to, activityField, channel);
+            cohorts = await getActiveCohorts(appId, range.from, range.to, activityField, channel, timezone);
         }
         else {
-            cohorts = await getNewActiveCohorts(appId, range.from, range.to, channel);
+            cohorts = await getNewActiveCohorts(appId, range.from, range.to, channel, timezone);
         }
 
         const cohortDates = cohorts.map((row) => row.date);
@@ -288,7 +283,7 @@ async function handleRetention(params, type) {
         });
 
         const maxDay = Math.max.apply(null, days.concat([0]));
-        const activityByDate = await getActivityUsersByDate(appId, range.from, addDays(range.to, maxDay), activityField, channel);
+        const activityByDate = await getActivityUsersByDate(appId, range.from, addDays(range.to, maxDay), activityField, channel, timezone);
         const payByDate = type === 'payer-repeat-pay' ? await getPaymentUsersByDate(appId, range.from, addDays(range.to, maxDay), channel) : {};
 
         const rows = cohortDates.map((date) => {
@@ -328,140 +323,7 @@ async function handleRetention(params, type) {
     }
 }
 
-async function handleBootstrap(params) {
-    const appId = params.qstring.app_id + '';
-    const range = parseRange(params);
-
-    if (!range.ok) {
-        common.returnMessage(params, 400, range.error);
-        return;
-    }
-
-    try {
-        const fromTs = moment.tz(range.from, 'YYYY-MM-DD', params.appTimezone || 'UTC').startOf('day').unix();
-        const toTs = moment.tz(range.to, 'YYYY-MM-DD', params.appTimezone || 'UTC').endOf('day').unix();
-        const users = await common.db.collection('app_users' + appId).find({
-            $or: [
-                {fs: {$gte: fromTs, $lte: toTs}},
-                {ls: {$gte: fromTs, $lte: toTs}},
-                {lac: {$gte: fromTs, $lte: toTs}}
-            ]
-        }, {uid: 1, did: 1, fs: 1, ls: 1, lac: 1, c: 1}).limit(50000).toArray();
-
-        let activityRows = 0;
-        let firstRows = 0;
-        const writes = [];
-        users.forEach((user) => {
-            const uid = (user.uid || user.did || user._id || '') + '';
-            if (!uid) {
-                return;
-            }
-
-            const firstTs = toNumber(user.fs || user.lac || user.ls);
-            const lastTs = toNumber(user.ls || user.lac || user.fs);
-            const firstDate = firstTs ? formatDate(params.appTimezone, firstTs) : null;
-            const lastDate = lastTs ? formatDate(params.appTimezone, lastTs) : null;
-            const channel = user.c ? user.c + '' : '';
-
-            if (firstDate && firstDate >= range.from && firstDate <= range.to) {
-                writes.push(upsertBootstrapActivity(appId, uid, firstDate, firstTs, '[CLY]_bootstrap_first_seen', channel));
-                firstRows++;
-                activityRows++;
-            }
-
-            if (lastDate && lastDate >= range.from && lastDate <= range.to && lastDate !== firstDate) {
-                writes.push(upsertBootstrapActivity(appId, uid, lastDate, lastTs, '[CLY]_bootstrap_last_seen', channel));
-                activityRows++;
-            }
-        });
-
-        await Promise.all(writes);
-
-        common.returnOutput(params, {
-            from: range.from,
-            to: range.to,
-            scanned_users: users.length,
-            activity_rows: activityRows,
-            first_rows: firstRows,
-            limit: 50000
-        });
-    }
-    catch (err) {
-        common.log('retention').e('Bootstrap query failed', err);
-        common.returnMessage(params, 500, 'Bootstrap query failed');
-    }
-}
-
-function upsertBootstrapActivity(appId, uid, date, ts, eventKey, channel) {
-    const activityId = [appId, uid, date].join(':');
-    const activitySet = {
-        _id: activityId,
-        app_id: appId + '',
-        uid: uid + '',
-        date: date,
-        active_by_any_event: 1,
-        updated_at: Date.now()
-    };
-    if (channel) {
-        activitySet.channel = channel + '';
-    }
-
-    const activityWrite = new Promise((resolve, reject) => {
-        common.db.collection(COLLECTION_ACTIVITY).updateOne(
-            {_id: activityId},
-            {
-                $set: activitySet,
-                $setOnInsert: {created_at: Date.now(), first_event: eventKey},
-                $inc: {event_count: 1},
-                $min: {first_ts: ts},
-                $max: {last_ts: ts, active_by_any_event: 1, active_by_login: 0}
-            },
-            {upsert: true},
-            function(err) {
-                if (err) {
-                    reject(err);
-                }
-                else {
-                    resolve();
-                }
-            }
-        );
-    });
-
-    const firstId = [appId, uid].join(':');
-    const firstSet = {
-        _id: firstId,
-        app_id: appId + '',
-        uid: uid + '',
-        updated_at: Date.now()
-    };
-    if (channel) {
-        firstSet.channel = channel + '';
-    }
-    const firstWrite = new Promise((resolve, reject) => {
-        common.db.collection(COLLECTION_FIRSTS).updateOne(
-            {_id: firstId},
-            {
-                $set: firstSet,
-                $setOnInsert: {created_at: Date.now(), first_active_date: date},
-                $min: {first_active_ts: ts}
-            },
-            {upsert: true},
-            function(err) {
-                if (err) {
-                    reject(err);
-                }
-                else {
-                    resolve();
-                }
-            }
-        );
-    });
-
-    return Promise.all([activityWrite, firstWrite]);
-}
-
-async function getNewActiveCohorts(appId, from, to, channel) {
+async function getNewActiveCohorts(appId, from, to, channel, timezone) {
     const match = {
         app_id: appId,
         first_active_date: {$gte: from, $lte: to}
@@ -469,15 +331,17 @@ async function getNewActiveCohorts(appId, from, to, channel) {
     if (channel) {
         match.channel = channel + '';
     }
-    return common.db.collection(COLLECTION_FIRSTS).aggregate([
+    const rows = await common.db.collection(COLLECTION_FIRSTS).aggregate([
         {$match: match},
         {$group: {_id: '$first_active_date', users: {$addToSet: '$uid'}}},
         {$project: {_id: 0, date: '$_id', users: 1}},
         {$sort: {date: 1}}
     ], {allowDiskUse: true}).toArray();
+    const historicalRows = await getHistoricalFirstActiveCohorts(appId, from, to, channel, timezone);
+    return mergeDateUserRows(rows, historicalRows);
 }
 
-async function getActiveCohorts(appId, from, to, activityField, channel) {
+async function getActiveCohorts(appId, from, to, activityField, channel, timezone) {
     const match = {
         app_id: appId,
         date: {$gte: from, $lte: to}
@@ -486,12 +350,17 @@ async function getActiveCohorts(appId, from, to, activityField, channel) {
     if (channel) {
         match.channel = channel + '';
     }
-    return common.db.collection(COLLECTION_ACTIVITY).aggregate([
+    const rows = await common.db.collection(COLLECTION_ACTIVITY).aggregate([
         {$match: match},
         {$group: {_id: '$date', users: {$addToSet: '$uid'}}},
         {$project: {_id: 0, date: '$_id', users: 1}},
         {$sort: {date: 1}}
     ], {allowDiskUse: true}).toArray();
+    if (activityField !== 'active_by_any_event') {
+        return rows;
+    }
+    const historicalRows = await getHistoricalActiveCohorts(appId, from, to, channel, timezone);
+    return mergeDateUserRows(rows, historicalRows);
 }
 
 async function getPayerCohorts(appId, from, to, channel) {
@@ -510,7 +379,7 @@ async function getPayerCohorts(appId, from, to, channel) {
     ], {allowDiskUse: true}).toArray();
 }
 
-async function getActivityUsersByDate(appId, from, to, activityField, channel) {
+async function getActivityUsersByDate(appId, from, to, activityField, channel, timezone) {
     const match = {
         app_id: appId,
         date: {$gte: from, $lte: to}
@@ -525,11 +394,100 @@ async function getActivityUsersByDate(appId, from, to, activityField, channel) {
         {$project: {_id: 0, date: '$_id', users: 1}}
     ], {allowDiskUse: true}).toArray();
 
+    const historicalRows = activityField === 'active_by_any_event' ? await getHistoricalActiveCohorts(appId, from, to, channel, timezone) : [];
+    const ret = dateRowsToMap(mergeDateUserRows(rows, historicalRows));
+    return ret;
+}
+
+async function getHistoricalFirstActiveCohorts(appId, from, to, channel, timezone) {
+    const range = getTimestampRange(from, to, timezone);
+    const query = {
+        fs: {$gte: range.fromTs, $lte: range.toTs}
+    };
+    if (channel) {
+        query.c = channel + '';
+    }
+    const users = await common.db.collection('app_users' + appId).find(query, {uid: 1, did: 1, fs: 1}).limit(50000).toArray();
+    return usersToDateRows(users, 'fs', timezone);
+}
+
+async function getHistoricalActiveCohorts(appId, from, to, channel, timezone) {
+    const range = getTimestampRange(from, to, timezone);
+    const query = {
+        $or: [
+            {ls: {$gte: range.fromTs, $lte: range.toTs}},
+            {lac: {$gte: range.fromTs, $lte: range.toTs}}
+        ]
+    };
+    if (channel) {
+        query.c = channel + '';
+    }
+    const users = await common.db.collection('app_users' + appId).find(query, {uid: 1, did: 1, ls: 1, lac: 1}).limit(50000).toArray();
+    const byDate = {};
+    users.forEach((user) => {
+        const lastSessionTs = toNumber(user.ls);
+        const lastActionTs = toNumber(user.lac);
+        const ts = lastSessionTs >= range.fromTs && lastSessionTs <= range.toTs ? lastSessionTs : lastActionTs;
+        addUserToDateRows(byDate, user, ts, timezone);
+    });
+    return mapToDateRows(byDate);
+}
+
+function usersToDateRows(users, tsField, timezone) {
+    const byDate = {};
+    (users || []).forEach((user) => {
+        addUserToDateRows(byDate, user, toNumber(user[tsField]), timezone);
+    });
+    return mapToDateRows(byDate);
+}
+
+function addUserToDateRows(byDate, user, ts, timezone) {
+    const uid = (user.uid || user.did || user._id || '') + '';
+    if (!uid || !ts) {
+        return;
+    }
+    const date = formatDate(timezone || 'UTC', ts);
+    if (!byDate[date]) {
+        byDate[date] = {};
+    }
+    byDate[date][uid] = true;
+}
+
+function mapToDateRows(byDate) {
+    return Object.keys(byDate).sort().map((date) => ({
+        date: date,
+        users: Object.keys(byDate[date])
+    }));
+}
+
+function mergeDateUserRows() {
+    const byDate = {};
+    Array.prototype.slice.call(arguments).forEach((rows) => {
+        (rows || []).forEach((row) => {
+            if (!byDate[row.date]) {
+                byDate[row.date] = {};
+            }
+            (row.users || []).forEach((uid) => {
+                byDate[row.date][uid] = true;
+            });
+        });
+    });
+    return mapToDateRows(byDate);
+}
+
+function dateRowsToMap(rows) {
     const ret = {};
     rows.forEach((row) => {
         ret[row.date] = row.users || [];
     });
     return ret;
+}
+
+function getTimestampRange(from, to, timezone) {
+    return {
+        fromTs: moment.tz(from, 'YYYY-MM-DD', timezone || 'UTC').startOf('day').unix(),
+        toTs: moment.tz(to, 'YYYY-MM-DD', timezone || 'UTC').endOf('day').unix()
+    };
 }
 
 async function getPaymentUsersByDate(appId, from, to, channel) {

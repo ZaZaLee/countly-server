@@ -25,9 +25,6 @@
             revenueSummary: function() {
                 return this.$store.state.countlyRevenue.revenue.summary || {};
             },
-            bootstrapResult: function() {
-                return this.$store.state.countlyRevenue.bootstrapResult;
-            },
             hasRows: function() {
                 return this.revenueRows.length;
             },
@@ -62,9 +59,6 @@
         methods: {
             refresh: function() {
                 this.$store.dispatch('countlyRevenue/fetchAll', false);
-            },
-            bootstrap: function() {
-                this.$store.dispatch('countlyRevenue/bootstrap');
             }
         },
         mounted: function() {

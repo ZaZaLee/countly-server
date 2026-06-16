@@ -11,7 +11,6 @@ const PLUGIN_NAME = 'revenue';
 const COLLECTION_ACTIVITY = 'soda_user_activity_daily';
 const COLLECTION_FIRSTS = 'soda_user_firsts';
 const COLLECTION_PAYMENTS = 'soda_pay_order_fact';
-const COLLECTION_REVENUE_AGGREGATES = 'soda_revenue_daily_aggregate';
 
 const MAX_RANGE_DAYS = 120;
 
@@ -72,13 +71,6 @@ const MAX_RANGE_DAYS = 120;
         return true;
     });
 
-    plugins.register('/o/revenue/bootstrap', function(ob) {
-        const params = ob.params;
-        validateRead(params, FEATURE_NAME, function() {
-            handleBootstrap(params);
-        });
-        return true;
-    });
 }());
 
 function processEvent(params, currEvent) {
@@ -181,13 +173,8 @@ async function handleRevenue(params) {
             app_id: appId,
             date: {$gte: range.from, $lte: range.to}
         };
-        const aggregateMatch = {
-            app_id: appId,
-            date: {$gte: range.from, $lte: range.to}
-        };
         if (channel) {
             paymentMatch.channel = channel + '';
-            aggregateMatch.channel = channel + '';
         }
 
         const idExpr = groupBy === 'iap_id' ? '$iap_id' : (groupBy === 'channel' ? '$channel' : '$date');
@@ -213,26 +200,16 @@ async function handleRevenue(params) {
             {$sort: {key: 1}}
         ], {allowDiskUse: true}).toArray();
 
-        const aggregateRowsRaw = groupBy !== 'date' ? [] : await common.db.collection(COLLECTION_REVENUE_AGGREGATES).aggregate([
-            {$match: aggregateMatch},
-            {$group: {
-                _id: '$date',
-                revenue: {$sum: '$revenue'},
-                amount_fen: {$sum: '$amount_fen'},
-                pay_orders: {$sum: '$pay_orders'}
-            }},
-            {$project: {
-                _id: 0,
-                key: '$_id',
-                revenue: 1,
-                amount_fen: 1,
-                pay_orders: 1,
-                pay_users: {$literal: 0},
-                fallback_orders: '$pay_orders',
-                aggregate_only: {$literal: true}
-            }},
-            {$sort: {key: 1}}
-        ], {allowDiskUse: true}).toArray();
+        const historicalAggregate = groupBy === 'date' && !channel ? await getHistoricalRevenueAggregate(params, appId, range) : {rows: []};
+        const aggregateRowsRaw = historicalAggregate.rows.map((row) => ({
+            key: row.date,
+            revenue: row.revenue,
+            amount_fen: Math.round(row.revenue * 100),
+            pay_orders: row.pay_orders,
+            pay_users: 0,
+            fallback_orders: row.pay_orders,
+            aggregate_only: true
+        }));
         const factKeys = {};
         factRows.forEach((row) => {
             factKeys[row.key || ''] = true;
@@ -293,33 +270,7 @@ async function handleRevenue(params) {
     }
 }
 
-async function handleBootstrap(params) {
-    const appId = params.qstring.app_id + '';
-    const range = parseRange(params);
-
-    if (!range.ok) {
-        common.returnMessage(params, 400, range.error);
-        return;
-    }
-
-    try {
-        const revenueAggregate = await bootstrapRevenueAggregates(params, appId, range);
-
-        common.returnOutput(params, {
-            from: range.from,
-            to: range.to,
-            revenue_rows: revenueAggregate.rows,
-            revenue: revenueAggregate.revenue,
-            pay_orders: revenueAggregate.pay_orders
-        });
-    }
-    catch (err) {
-        common.log('revenue').e('Bootstrap query failed', err);
-        common.returnMessage(params, 500, 'Bootstrap query failed');
-    }
-}
-
-async function bootstrapRevenueAggregates(params, appId, range) {
+async function getHistoricalRevenueAggregate(params, appId, range) {
     const config = getConfig(params);
     const collectionName = crypto.createHash('sha1').update(config.payment_success_event + appId).digest('hex');
     const docs = await common.db.collection('events_data').find({
@@ -357,29 +308,14 @@ async function bootstrapRevenueAggregates(params, appId, range) {
     let totalRevenue = 0;
     let totalOrders = 0;
 
-    await Promise.all(rows.map((row) => {
+    rows.forEach((row) => {
         totalRevenue += row.revenue;
         totalOrders += row.pay_orders;
-        const id = [appId, row.date, 'all'].join(':');
-        return common.db.collection(COLLECTION_REVENUE_AGGREGATES).updateOne(
-            {_id: id},
-            {$set: {
-                _id: id,
-                app_id: appId + '',
-                date: row.date,
-                channel: '',
-                source: 'events_data',
-                revenue: row.revenue,
-                amount_fen: Math.round(row.revenue * 100),
-                pay_orders: row.pay_orders,
-                updated_at: Date.now()
-            }},
-            {upsert: true}
-        );
-    }));
+    });
 
     return {
-        rows: rows.length,
+        rows: rows,
+        row_count: rows.length,
         revenue: round(totalRevenue, 2),
         pay_orders: totalOrders
     };

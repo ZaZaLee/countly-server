@@ -42,14 +42,6 @@
                 group_by: filters.groupBy,
                 channel: filters.channel || ''
             });
-        },
-        bootstrap: function(filters) {
-            filters = normalizeFilters(filters);
-            return fetchApi('/o/revenue/bootstrap', {
-                app_id: countlyCommon.ACTIVE_APP_ID,
-                from: filters.from,
-                to: filters.to
-            });
         }
     };
 
@@ -57,8 +49,7 @@
         var getInitialState = function() {
             return {
                 filters: defaultFilters(),
-                revenue: {rows: [], summary: {}},
-                bootstrapResult: null
+                revenue: {rows: [], summary: {}}
             };
         };
 
@@ -78,16 +69,6 @@
                     }).catch(function(error) {
                         context.dispatch('onFetchError', {error: error, useLoader: useLoader});
                     });
-                },
-                bootstrap: function(context) {
-                    context.dispatch('onFetchInit', {useLoader: true});
-                    return countlyRevenue.service.bootstrap(context.state.filters)
-                        .then(function(response) {
-                            context.commit('setBootstrapResult', response);
-                            return context.dispatch('fetchAll', true);
-                        }).catch(function(error) {
-                            context.dispatch('onFetchError', {error: error, useLoader: true});
-                        });
                 }
             },
             mutations: {
@@ -96,9 +77,6 @@
                 },
                 setRevenue: function(state, value) {
                     state.revenue = value;
-                },
-                setBootstrapResult: function(state, value) {
-                    state.bootstrapResult = value;
                 }
             },
             submodules: [countlyVue.vuex.FetchMixin()]

@@ -28,9 +28,6 @@
             repeatPayRetentionRows: function() {
                 return this.$store.state.countlyRetention.repeatPayRetention.rows || [];
             },
-            bootstrapResult: function() {
-                return this.$store.state.countlyRetention.bootstrapResult;
-            },
             hasRows: function() {
                 return this.retentionRows.length || this.payerRetentionRows.length || this.repeatPayRetentionRows.length;
             },
@@ -50,9 +47,6 @@
         methods: {
             refresh: function() {
                 this.$store.dispatch('countlyRetention/fetchAll', false);
-            },
-            bootstrap: function() {
-                this.$store.dispatch('countlyRetention/bootstrap');
             },
             makeRetentionChartOptions: function(rows, title) {
                 return {
