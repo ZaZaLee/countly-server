@@ -30,8 +30,7 @@
             </div>
         </cly-section>
 
-        <cly-section>
-            <div class="bu-mb-4 text-medium color-cool-gray-100">{{i18n('retention.chart.activity-trend')}}</div>
+        <cly-section :title="i18n('retention.chart.activity-trend')">
             <cly-chart-line :option="activityBucketChartOptions" :height="320" v-loading="isLoading" :force-loading="isLoading"></cly-chart-line>
             <cly-datatable-n :rows="activityBucketRows" :force-loading="isLoading">
                 <template v-slot="scope">
@@ -44,8 +43,7 @@
             </cly-datatable-n>
         </cly-section>
 
-        <cly-section>
-            <div class="bu-mb-4 text-medium color-cool-gray-100">{{i18n('retention.chart.player-retention')}}</div>
+        <cly-section :title="i18n('retention.chart.player-retention')">
             <cly-chart-line :option="retentionChartOptions" :height="320" v-loading="isLoading" :force-loading="isLoading"></cly-chart-line>
             <cly-datatable-n :rows="retentionRows" :force-loading="isLoading">
                 <template v-slot="scope">
@@ -60,8 +58,7 @@
                 </template>
             </cly-datatable-n>
         </cly-section>
-        <cly-section>
-            <div class="bu-mb-4 text-medium color-cool-gray-100">{{i18n('retention.chart.payer-active-retention')}}</div>
+        <cly-section :title="i18n('retention.chart.payer-active-retention')">
             <cly-chart-line :option="payerRetentionChartOptions" :height="320" v-loading="isLoading" :force-loading="isLoading"></cly-chart-line>
             <cly-datatable-n :rows="payerRetentionRows" :force-loading="isLoading">
                 <template v-slot="scope">
@@ -76,8 +73,7 @@
                 </template>
             </cly-datatable-n>
         </cly-section>
-        <cly-section>
-            <div class="bu-mb-4 text-medium color-cool-gray-100">{{i18n('retention.chart.repeat-pay-retention')}}</div>
+        <cly-section :title="i18n('retention.chart.repeat-pay-retention')">
             <cly-chart-line :option="repeatPayRetentionChartOptions" :height="320" v-loading="isLoading" :force-loading="isLoading"></cly-chart-line>
             <cly-datatable-n :rows="repeatPayRetentionRows" :force-loading="isLoading">
                 <template v-slot="scope">
