@@ -100,6 +100,9 @@ function writePayment(appId, uid, date, ts, currEvent, segmentation, channel, co
     const orderId = getFirstValue(segmentation, config.order_segments);
     const amountFen = toNumber(segmentation[config.amount_fen_segment]);
     const amountYuan = toNumber(currEvent.sum) || (amountFen ? amountFen / 100 : 0);
+    if (amountFen <= 0 && amountYuan <= 0) {
+        return;
+    }
     const iapId = getFirstValue(segmentation, config.iap_segments) || '';
     const dedupMode = orderId ? 'order_id' : 'event_fingerprint';
     const id = orderId ?

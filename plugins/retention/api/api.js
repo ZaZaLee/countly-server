@@ -9,11 +9,13 @@ const common = require('../../../api/utils/common.js'),
 const FEATURE_NAME = 'retention';
 const PLUGIN_NAME = 'retention';
 const COLLECTION_ACTIVITY = 'soda_user_activity_daily';
+const COLLECTION_ACTIVITY_BUCKET = 'soda_user_activity_bucket';
 const COLLECTION_FIRSTS = 'soda_user_firsts';
 const COLLECTION_PAYMENTS = 'soda_pay_order_fact';
 
 const DEFAULT_DAYS = [1, 2, 3, 7, 14, 30];
 const MAX_RANGE_DAYS = 120;
+const MAX_BUCKET_RANGE_DAYS = 14;
 
 (function() {
     plugins.register('/permissions/features', function(ob) {
@@ -88,6 +90,14 @@ const MAX_RANGE_DAYS = 120;
         return true;
     });
 
+    plugins.register('/o/retention/activity-buckets', function(ob) {
+        const params = ob.params;
+        validateRead(params, FEATURE_NAME, function() {
+            handleActivityBuckets(params);
+        });
+        return true;
+    });
+
 }());
 
 function processEvent(params, currEvent) {
@@ -112,6 +122,7 @@ function processEvent(params, currEvent) {
 
     if (isActivity) {
         writeActivity(params.app_id, uid, date, eventTs, eventKey, isLogin, eventKey !== '[CLY]_session', channel);
+        writeActivityBuckets(params.app_id, uid, eventTs, date, eventKey, channel);
     }
 
     if (isPaymentSuccess) {
@@ -188,10 +199,49 @@ function writeActivity(appId, uid, date, ts, eventKey, isLogin, activeByAnyEvent
     common.writeBatcher.add(COLLECTION_FIRSTS, firstId, firstUpdate);
 }
 
+function writeActivityBuckets(appId, uid, ts, date, eventKey, channel) {
+    ['5m', '1h'].forEach((bucketType) => {
+        const bucketStart = getBucketStart(ts, bucketType);
+        const id = [appId, uid, bucketType, bucketStart].join(':');
+        const set = {
+            _id: id,
+            app_id: appId + '',
+            uid: uid + '',
+            bucket_type: bucketType,
+            bucket_start: bucketStart,
+            date: date,
+            updated_at: Date.now()
+        };
+        if (channel) {
+            set.channel = channel + '';
+        }
+        const update = {
+            $set: set,
+            $setOnInsert: {
+                created_at: Date.now(),
+                first_event: eventKey
+            },
+            $inc: {
+                event_count: 1
+            },
+            $min: {
+                first_ts: ts
+            },
+            $max: {
+                last_ts: ts
+            }
+        };
+        common.writeBatcher.add(COLLECTION_ACTIVITY_BUCKET, id, update);
+    });
+}
+
 function writePayment(appId, uid, date, ts, currEvent, segmentation, channel, config) {
     const orderId = getFirstValue(segmentation, config.order_segments);
     const amountFen = toNumber(segmentation[config.amount_fen_segment]);
     const amountYuan = toNumber(currEvent.sum) || (amountFen ? amountFen / 100 : 0);
+    if (amountFen <= 0 && amountYuan <= 0) {
+        return;
+    }
     const iapId = getFirstValue(segmentation, config.iap_segments) || '';
     const dedupMode = orderId ? 'order_id' : 'event_fingerprint';
     const id = orderId ?
@@ -320,6 +370,56 @@ async function handleRetention(params, type) {
     catch (err) {
         common.log('retention').e('Retention query failed', err);
         common.returnMessage(params, 500, 'Retention query failed');
+    }
+}
+
+async function handleActivityBuckets(params) {
+    const appId = params.qstring.app_id + '';
+    const bucketType = normalizeBucketType(params.qstring.bucket || params.qstring.bucket_type);
+    const range = parseBucketRange(params);
+    const channel = params.qstring.channel;
+
+    if (!range.ok) {
+        common.returnMessage(params, 400, range.error);
+        return;
+    }
+
+    try {
+        const match = {
+            app_id: appId,
+            bucket_type: bucketType,
+            bucket_start: {$gte: range.fromBucket, $lte: range.toBucket}
+        };
+        if (channel) {
+            match.channel = channel + '';
+        }
+
+        const rows = await common.db.collection(COLLECTION_ACTIVITY_BUCKET).aggregate([
+            {$match: match},
+            {$group: {
+                _id: '$bucket_start',
+                users: {$addToSet: '$uid'},
+                events: {$sum: '$event_count'}
+            }},
+            {$project: {
+                _id: 0,
+                bucket_start: '$_id',
+                active_users: {$size: '$users'},
+                events: 1
+            }},
+            {$sort: {bucket_start: 1}}
+        ], {allowDiskUse: true}).toArray();
+
+        common.returnOutput(params, {
+            bucket_type: bucketType,
+            from: range.from,
+            to: range.to,
+            rows: rows
+        });
+    }
+    catch (err) {
+        common.log('retention').e('Activity bucket query failed', err);
+        common.returnMessage(params, 500, 'Activity bucket query failed');
     }
 }
 
@@ -487,6 +587,49 @@ function getTimestampRange(from, to, timezone) {
     return {
         fromTs: moment.tz(from, 'YYYY-MM-DD', timezone || 'UTC').startOf('day').unix(),
         toTs: moment.tz(to, 'YYYY-MM-DD', timezone || 'UTC').endOf('day').unix()
+    };
+}
+
+function getBucketStart(timestamp, bucketType) {
+    const bucketSeconds = bucketType === '1h' ? 3600 : 300;
+    return Math.floor(toNumber(timestamp) / bucketSeconds) * bucketSeconds;
+}
+
+function normalizeBucketType(value) {
+    return value === '1h' ? '1h' : '5m';
+}
+
+function parseBucketRange(params) {
+    const q = params.qstring || {};
+    const timezone = params.appTimezone || 'UTC';
+    let from = q.from;
+    let to = q.to;
+
+    if (!from || !to) {
+        to = moment().tz(timezone).format('YYYY-MM-DD');
+        from = moment().tz(timezone).subtract(1, 'days').format('YYYY-MM-DD');
+    }
+
+    if (!isDate(from) || !isDate(to)) {
+        return {ok: false, error: 'Invalid date format, expected YYYY-MM-DD'};
+    }
+    const start = moment.utc(from, 'YYYY-MM-DD');
+    const end = moment.utc(to, 'YYYY-MM-DD');
+    if (end.isBefore(start)) {
+        return {ok: false, error: 'Invalid date range'};
+    }
+    if (end.diff(start, 'days') > MAX_BUCKET_RANGE_DAYS) {
+        return {ok: false, error: 'Bucket date range is too large'};
+    }
+
+    const tsRange = getTimestampRange(from, to, timezone);
+    const bucketType = normalizeBucketType(q.bucket || q.bucket_type);
+    return {
+        ok: true,
+        from: from,
+        to: to,
+        fromBucket: getBucketStart(tsRange.fromTs, bucketType),
+        toBucket: getBucketStart(tsRange.toTs, bucketType)
     };
 }
 

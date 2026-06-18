@@ -9,6 +9,7 @@
             to: moment().format('YYYY-MM-DD'),
             days: DEFAULT_DAYS.slice(),
             activityMode: 'any',
+            bucketType: '5m',
             channel: ''
         };
     }
@@ -81,6 +82,16 @@
                 days: filters.days.join(','),
                 channel: filters.channel || ''
             }).then(mapRetentionResponse);
+        },
+        fetchActivityBuckets: function(filters) {
+            filters = normalizeFilters(filters);
+            return fetchApi('/o/retention/activity-buckets', {
+                app_id: countlyCommon.ACTIVE_APP_ID,
+                from: filters.from,
+                to: filters.to,
+                bucket: filters.bucketType,
+                channel: filters.channel || ''
+            });
         }
     };
 
@@ -88,6 +99,7 @@
         var getInitialState = function() {
             return {
                 filters: defaultFilters(),
+                activityBuckets: {rows: [], bucket_type: '5m'},
                 retention: {rows: [], type: 'active'},
                 payerRetention: {rows: [], type: 'payer'},
                 repeatPayRetention: {rows: [], type: 'payer-repeat-pay'}
@@ -105,13 +117,15 @@
                     var filters = normalizeFilters(context.state.filters);
                     context.commit('setFilters', filters);
                     return Promise.all([
+                        countlyRetention.service.fetchActivityBuckets(filters),
                         countlyRetention.service.fetchRetention(filters),
                         countlyRetention.service.fetchPayerRetention(filters),
                         countlyRetention.service.fetchRepeatPayRetention(filters)
                     ]).then(function(response) {
-                        context.commit('setRetention', response[0]);
-                        context.commit('setPayerRetention', response[1]);
-                        context.commit('setRepeatPayRetention', response[2]);
+                        context.commit('setActivityBuckets', response[0]);
+                        context.commit('setRetention', response[1]);
+                        context.commit('setPayerRetention', response[2]);
+                        context.commit('setRepeatPayRetention', response[3]);
                         context.dispatch('onFetchSuccess', {useLoader: useLoader});
                     }).catch(function(error) {
                         context.dispatch('onFetchError', {error: error, useLoader: useLoader});
@@ -124,6 +138,9 @@
                 },
                 setRetention: function(state, value) {
                     state.retention = value;
+                },
+                setActivityBuckets: function(state, value) {
+                    state.activityBuckets = value;
                 },
                 setPayerRetention: function(state, value) {
                     state.payerRetention = value;

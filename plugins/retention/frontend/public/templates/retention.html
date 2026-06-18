@@ -16,12 +16,31 @@
                             <el-option :label="i18n('retention.activity.login-only')" value="login"></el-option>
                         </el-select>
                     </div>
+                    <div class="bu-level-item">
+                        <el-select v-model="filters.bucketType" @change="refresh" style="width:140px;">
+                            <el-option :label="i18n('retention.bucket.5m')" value="5m"></el-option>
+                            <el-option :label="i18n('retention.bucket.1h')" value="1h"></el-option>
+                        </el-select>
+                    </div>
                 </div>
             </div>
 
             <div v-if="!hasRows && !isLoading" style="padding:24px; border:1px solid #eceff5; border-radius:4px; color:#52606d;">
                 {{i18n('retention.empty-state')}}
             </div>
+        </cly-section>
+
+        <cly-section>
+            <cly-chart-line :option="activityBucketChartOptions" :height="320" v-loading="isLoading" :force-loading="isLoading"></cly-chart-line>
+            <cly-datatable-n :rows="activityBucketRows" :force-loading="isLoading">
+                <template v-slot="scope">
+                    <el-table-column :label="i18n('retention.table.bucket')">
+                        <template slot-scope="scope">{{formatBucket(scope.row.bucket_start)}}</template>
+                    </el-table-column>
+                    <el-table-column prop="active_users" :label="i18n('retention.table.active-users')"></el-table-column>
+                    <el-table-column prop="events" :label="i18n('retention.table.events')"></el-table-column>
+                </template>
+            </cly-datatable-n>
         </cly-section>
 
         <cly-section>

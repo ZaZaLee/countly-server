@@ -28,8 +28,36 @@
             repeatPayRetentionRows: function() {
                 return this.$store.state.countlyRetention.repeatPayRetention.rows || [];
             },
+            activityBucketRows: function() {
+                return this.$store.state.countlyRetention.activityBuckets.rows || [];
+            },
             hasRows: function() {
-                return this.retentionRows.length || this.payerRetentionRows.length || this.repeatPayRetentionRows.length;
+                return this.activityBucketRows.length || this.retentionRows.length || this.payerRetentionRows.length || this.repeatPayRetentionRows.length;
+            },
+            activityBucketChartOptions: function() {
+                return {
+                    xAxis: {
+                        data: this.activityBucketRows.map(function(row) {
+                            return this.formatBucket(row.bucket_start);
+                        }, this)
+                    },
+                    yAxis: {},
+                    series: [{
+                        name: CV.i18n('retention.table.active-users'),
+                        type: 'line',
+                        data: this.activityBucketRows.map(function(row) {
+                            return row.active_users || 0;
+                        })
+                    }],
+                    title: {
+                        text: CV.i18n('retention.chart.activity-trend'),
+                        left: 'center',
+                        textStyle: {
+                            fontSize: 14,
+                            fontWeight: 'normal'
+                        }
+                    }
+                };
             },
             retentionChartOptions: function() {
                 return this.makeRetentionChartOptions(this.retentionRows, CV.i18n('retention.chart.player-retention'));
@@ -47,6 +75,9 @@
         methods: {
             refresh: function() {
                 this.$store.dispatch('countlyRetention/fetchAll', false);
+            },
+            formatBucket: function(bucketStart) {
+                return moment.unix(bucketStart).format('MM-DD HH:mm');
             },
             makeRetentionChartOptions: function(rows, title) {
                 return {
