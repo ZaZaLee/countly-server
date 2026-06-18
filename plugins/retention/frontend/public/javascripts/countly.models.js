@@ -52,6 +52,15 @@
 
     countlyRetention.service = {
         defaultFilters: defaultFilters,
+        emptyActivityBuckets: function(filters) {
+            filters = normalizeFilters(filters);
+            return {
+                bucket_type: filters.bucketType,
+                from: filters.from,
+                to: filters.to,
+                rows: []
+            };
+        },
         fetchRetention: function(filters) {
             filters = normalizeFilters(filters);
             return fetchApi('/o/retention/retention', {
@@ -117,8 +126,11 @@
                     context.dispatch('onFetchInit', {useLoader: useLoader});
                     var filters = normalizeFilters(context.state.filters);
                     context.commit('setFilters', filters);
+                    var activityBucketsPromise = countlyRetention.service.fetchActivityBuckets(filters).catch(function() {
+                        return countlyRetention.service.emptyActivityBuckets(filters);
+                    });
                     return Promise.all([
-                        countlyRetention.service.fetchActivityBuckets(filters),
+                        activityBucketsPromise,
                         countlyRetention.service.fetchRetention(filters),
                         countlyRetention.service.fetchPayerRetention(filters),
                         countlyRetention.service.fetchRepeatPayRetention(filters)

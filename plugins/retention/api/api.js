@@ -10,12 +10,13 @@ const FEATURE_NAME = 'retention';
 const PLUGIN_NAME = 'retention';
 const COLLECTION_ACTIVITY = 'soda_user_activity_daily';
 const COLLECTION_ACTIVITY_BUCKET = 'soda_user_activity_bucket';
+const COLLECTION_ACTIVITY_BUCKET_AGG = 'soda_user_activity_bucket_agg';
 const COLLECTION_FIRSTS = 'soda_user_firsts';
 const COLLECTION_PAYMENTS = 'soda_pay_order_fact';
 
 const DEFAULT_DAYS = [1, 2, 3, 7, 14, 30];
 const MAX_RANGE_DAYS = 120;
-const MAX_BUCKET_RANGE_DAYS = 14;
+const MAX_BUCKET_RANGE_DAYS = 31;
 
 (function() {
     plugins.register('/permissions/features', function(ob) {
@@ -238,6 +239,38 @@ function writeActivityBuckets(appId, uid, ts, date, eventKey, channel) {
             }
         };
         common.writeBatcher.add(COLLECTION_ACTIVITY_BUCKET, id, update);
+
+        writeActivityBucketAgg(appId, uid, date, bucketType, bucketStart, channel);
+    });
+}
+
+function writeActivityBucketAgg(appId, uid, date, bucketType, bucketStart, channel) {
+    const channels = [''];
+    if (channel) {
+        channels.push(channel + '');
+    }
+    channels.forEach((channelValue) => {
+        const id = [appId, channelValue, bucketType, bucketStart].join(':');
+        common.writeBatcher.add(COLLECTION_ACTIVITY_BUCKET_AGG, id, {
+            $set: {
+                _id: id,
+                app_id: appId + '',
+                channel: channelValue,
+                bucket_type: bucketType,
+                bucket_start: bucketStart,
+                date: date,
+                updated_at: Date.now()
+            },
+            $setOnInsert: {
+                created_at: Date.now()
+            },
+            $addToSet: {
+                users: uid + ''
+            },
+            $inc: {
+                events: 1
+            }
+        });
     });
 }
 
@@ -391,30 +424,7 @@ async function handleActivityBuckets(params) {
     }
 
     try {
-        const match = {
-            app_id: appId,
-            bucket_type: bucketType,
-            bucket_start: {$gte: range.fromBucket, $lte: range.toBucket}
-        };
-        if (channel) {
-            match.channel = channel + '';
-        }
-
-        const rows = await common.db.collection(COLLECTION_ACTIVITY_BUCKET).aggregate([
-            {$match: match},
-            {$group: {
-                _id: '$bucket_start',
-                users: {$addToSet: '$uid'},
-                events: {$sum: '$event_count'}
-            }},
-            {$project: {
-                _id: 0,
-                bucket_start: '$_id',
-                active_users: {$size: '$users'},
-                events: 1
-            }},
-            {$sort: {bucket_start: 1}}
-        ], {allowDiskUse: true}).toArray();
+        const rows = await getActivityBucketRows(appId, bucketType, range, channel);
 
         common.returnOutput(params, {
             bucket_type: bucketType,
@@ -427,6 +437,60 @@ async function handleActivityBuckets(params) {
         common.log('retention').e('Activity bucket query failed', err);
         common.returnMessage(params, 500, 'Activity bucket query failed');
     }
+}
+
+async function getActivityBucketRows(appId, bucketType, range, channel) {
+    const aggRows = await getActivityBucketAggRows(appId, bucketType, range, channel);
+    const detailRows = await getActivityBucketDetailRows(appId, bucketType, range, channel, aggRows.map((row) => row.bucket_start));
+    return aggRows.concat(detailRows).sort((a, b) => a.bucket_start - b.bucket_start);
+}
+
+async function getActivityBucketAggRows(appId, bucketType, range, channel) {
+    return common.db.collection(COLLECTION_ACTIVITY_BUCKET_AGG).aggregate([
+        {$match: {
+            app_id: appId,
+            channel: channel ? channel + '' : '',
+            bucket_type: bucketType,
+            bucket_start: {$gte: range.fromBucket, $lte: range.toBucket}
+        }},
+        {$project: {
+            _id: 0,
+            bucket_start: 1,
+            active_users: {$size: {$ifNull: ['$users', []]}},
+            events: 1
+        }},
+        {$sort: {bucket_start: 1}}
+    ], {allowDiskUse: true}).toArray();
+}
+
+async function getActivityBucketDetailRows(appId, bucketType, range, channel, excludedBuckets) {
+    const match = {
+        app_id: appId,
+        bucket_type: bucketType,
+        bucket_start: {$gte: range.fromBucket, $lte: range.toBucket}
+    };
+    if (channel) {
+        match.channel = channel + '';
+    }
+    if (excludedBuckets && excludedBuckets.length) {
+        match.bucket_start.$nin = excludedBuckets;
+    }
+
+    return common.db.collection(COLLECTION_ACTIVITY_BUCKET).aggregate([
+        {$match: match},
+        {$group: {
+            _id: '$bucket_start',
+            users: {$addToSet: '$uid'},
+            events: {$sum: '$event_count'}
+        }},
+        {$project: {
+            _id: 0,
+            bucket_start: '$_id',
+            active_users: {$size: '$users'},
+            events: 1
+        }},
+        {$sort: {bucket_start: 1}}
+    ], {allowDiskUse: true}).toArray();
 }
 
 async function getNewActiveCohorts(appId, from, to, channel, timezone) {

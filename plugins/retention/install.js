@@ -10,6 +10,7 @@ pluginManager.dbConnection().then(function(countlyDb) {
         ['soda_user_activity_bucket', {app_id: 1, uid: 1, bucket_type: 1, bucket_start: 1}, {unique: true, background: true}],
         ['soda_user_activity_bucket', {app_id: 1, bucket_type: 1, bucket_start: 1}, {background: true}],
         ['soda_user_activity_bucket', {app_id: 1, channel: 1, bucket_type: 1, bucket_start: 1}, {background: true}],
+        ['soda_user_activity_bucket_agg', {app_id: 1, channel: 1, bucket_type: 1, bucket_start: 1}, {unique: true, background: true}],
         ['soda_user_firsts', {app_id: 1, uid: 1}, {unique: true, background: true}],
         ['soda_user_firsts', {app_id: 1, first_active_date: 1}, {background: true}],
         ['soda_user_firsts', {app_id: 1, first_pay_date: 1}, {background: true}]

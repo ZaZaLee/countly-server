@@ -48,15 +48,7 @@
                         data: this.activityBucketRows.map(function(row) {
                             return row.active_users || 0;
                         })
-                    }],
-                    title: {
-                        text: CV.i18n('retention.chart.activity-trend'),
-                        left: 'center',
-                        textStyle: {
-                            fontSize: 14,
-                            fontWeight: 'normal'
-                        }
-                    }
+                    }]
                 };
             },
             retentionChartOptions: function() {
@@ -112,15 +104,7 @@
                         data: rows.map(function(row) {
                             return parseFloat(row.d30_rate) || 0;
                         })
-                    }],
-                    title: {
-                        text: title,
-                        left: 'center',
-                        textStyle: {
-                            fontSize: 14,
-                            fontWeight: 'normal'
-                        }
-                    }
+                    }]
                 };
             }
         },
