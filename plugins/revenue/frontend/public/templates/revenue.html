@@ -42,6 +42,18 @@
                         <div style="font-size:24px;">{{formatNumber(revenueSummary.arppu || 0)}}</div>
                     </div>
                 </div>
+                <div class="bu-column">
+                    <div style="padding:16px; border:1px solid #eceff5; border-radius:4px;">
+                        <div style="color:#6c7280; margin-bottom:8px;">{{i18n('revenue.metric.ad-orders')}}</div>
+                        <div style="font-size:24px;">{{formatNumber(revenueSummary.ad_orders || 0)}}</div>
+                    </div>
+                </div>
+                <div class="bu-column">
+                    <div style="padding:16px; border:1px solid #eceff5; border-radius:4px;">
+                        <div style="color:#6c7280; margin-bottom:8px;">{{i18n('revenue.metric.ad-users')}}</div>
+                        <div style="font-size:24px;">{{formatNumber(revenueSummary.ad_users || 0)}}</div>
+                    </div>
+                </div>
             </div>
 
             <cly-chart-bar :option="revenueChartOptions" :height="320" v-loading="isLoading" :force-loading="isLoading"></cly-chart-bar>
@@ -55,6 +67,8 @@
                     <el-table-column prop="pay_orders" :label="i18n('revenue.table.orders')"></el-table-column>
                     <el-table-column prop="pay_users" :label="i18n('revenue.table.payers')"></el-table-column>
                     <el-table-column prop="arppu" :label="i18n('revenue.table.arppu')"></el-table-column>
+                    <el-table-column prop="ad_orders" :label="i18n('revenue.table.ad-orders')"></el-table-column>
+                    <el-table-column prop="ad_users" :label="i18n('revenue.table.ad-users')"></el-table-column>
                     <el-table-column :label="i18n('revenue.table.source')">
                         <template slot-scope="scope">
                             {{scope.row.aggregate_only ? i18n('revenue.source.historical-aggregate') : i18n('revenue.source.order-facts')}}

@@ -11,6 +11,7 @@ const PLUGIN_NAME = 'revenue';
 const COLLECTION_ACTIVITY = 'soda_user_activity_daily';
 const COLLECTION_FIRSTS = 'soda_user_firsts';
 const COLLECTION_PAYMENTS = 'soda_pay_order_fact';
+const COLLECTION_AD_PAYMENTS = 'soda_ad_order_fact';
 
 const MAX_RANGE_DAYS = 120;
 
@@ -29,6 +30,7 @@ const MAX_RANGE_DAYS = 120;
             'v2_e_launch'
         ],
         payment_success_event: 'v2_e_server_pay_success',
+        ad_payment_success_event: 'v2_e_server_ad_pay_success',
         payment_attempt_event: 'v2_e_in_app_purchase',
         excluded_activity_events: [
             'v2_e_shutdown'
@@ -90,9 +92,13 @@ function processEvent(params, currEvent) {
     const segmentation = currEvent.segmentation || {};
     const channel = getFirstValue(segmentation, config.channel_segments) || getUserChannel(params) || '';
     const isPaymentSuccess = eventKey === config.payment_success_event;
+    const isAdPaymentSuccess = eventKey === config.ad_payment_success_event;
 
     if (isPaymentSuccess) {
         writePayment(params.app_id, uid, date, eventTs, currEvent, segmentation, channel, config);
+    }
+    if (isAdPaymentSuccess) {
+        writeAdPayment(params.app_id, uid, date, eventTs, currEvent, segmentation, channel, config);
     }
 }
 
@@ -157,6 +163,39 @@ function writePayment(appId, uid, date, ts, currEvent, segmentation, channel, co
         {_id: firstId, first_pay_date: {$exists: false}},
         {$set: {first_pay_date: date, first_pay_ts: ts}},
         function() {}
+    );
+}
+
+function writeAdPayment(appId, uid, date, ts, currEvent, segmentation, channel, config) {
+    const orderId = getFirstValue(segmentation, config.order_segments);
+    const iapId = getFirstValue(segmentation, config.iap_segments) || '';
+    const dedupMode = orderId ? 'order_id' : 'event_fingerprint';
+    const id = orderId ?
+        [appId, orderId].join(':') :
+        [appId, uid, date, ts, fingerprint(segmentation)].join(':');
+
+    const doc = {
+        _id: id,
+        app_id: appId + '',
+        uid: uid + '',
+        order_id: orderId || '',
+        date: date,
+        ts: ts,
+        iap_id: iapId + '',
+        channel: channel ? channel + '' : '',
+        dedup_mode: dedupMode,
+        created_at: Date.now()
+    };
+
+    common.db.collection(COLLECTION_AD_PAYMENTS).updateOne(
+        {_id: id},
+        {$setOnInsert: doc},
+        {upsert: true},
+        function(err) {
+            if (err && err.code !== 11000) {
+                common.log('revenue').e('Failed to write ad payment fact', err);
+            }
+        }
     );
 }
 
@@ -243,11 +282,37 @@ async function handleRevenue(params) {
             totalFallbackOrders += toNumber(row.pay_orders);
         });
 
+        const adStats = await getAdPaymentStats(appId, range, channel, groupBy);
+        const adRowsByKey = {};
+        adStats.rows.forEach((row) => {
+            adRowsByKey[row.key || ''] = row;
+        });
+
         const rows = mergeRevenueRows(factRows, aggregateRows).map((row) => {
+            const adRow = adRowsByKey[row.key || ''] || {};
             row.revenue = round(row.revenue || 0, 2);
             row.arppu = row.pay_users ? round(row.revenue / row.pay_users, 2) : 0;
+            row.ad_orders = adRow.ad_orders || 0;
+            row.ad_users = adRow.ad_users || 0;
             return row;
         });
+        adStats.rows.forEach((adRow) => {
+            const exists = rows.some((row) => (row.key || '') === (adRow.key || ''));
+            if (!exists) {
+                rows.push({
+                    key: adRow.key,
+                    revenue: 0,
+                    amount_fen: 0,
+                    pay_orders: 0,
+                    pay_users: 0,
+                    arppu: 0,
+                    ad_orders: adRow.ad_orders || 0,
+                    ad_users: adRow.ad_users || 0,
+                    fallback_orders: 0
+                });
+            }
+        });
+        rows.sort((a, b) => (a.key || '').localeCompare(b.key || ''));
 
         common.returnOutput(params, {
             from: range.from,
@@ -262,6 +327,8 @@ async function handleRevenue(params) {
                 arpu: activeUsers ? round(totalRevenue / activeUsers, 2) : 0,
                 arppu: payUsers ? round(totalRevenue / payUsers, 2) : 0,
                 pay_rate: activeUsers ? round(payUsers * 100 / activeUsers, 2) : 0,
+                ad_orders: adStats.ad_orders,
+                ad_users: adStats.ad_users,
                 fallback_orders: totalFallbackOrders,
                 aggregate_only_orders: aggregateRows.reduce((sum, row) => sum + toNumber(row.pay_orders), 0)
             }
@@ -271,6 +338,47 @@ async function handleRevenue(params) {
         common.log('revenue').e('Revenue query failed', err);
         common.returnMessage(params, 500, 'Revenue query failed');
     }
+}
+
+async function getAdPaymentStats(appId, range, channel, groupBy) {
+    const match = {
+        app_id: appId,
+        date: {$gte: range.from, $lte: range.to}
+    };
+    if (channel) {
+        match.channel = channel + '';
+    }
+
+    const idExpr = groupBy === 'iap_id' ? '$iap_id' : (groupBy === 'channel' ? '$channel' : '$date');
+    const rows = await common.db.collection(COLLECTION_AD_PAYMENTS).aggregate([
+        {$match: match},
+        {$group: {
+            _id: idExpr,
+            ad_orders: {$sum: 1},
+            ad_users_set: {$addToSet: '$uid'}
+        }},
+        {$project: {
+            _id: 0,
+            key: '$_id',
+            ad_orders: 1,
+            ad_users: {$size: '$ad_users_set'}
+        }},
+        {$sort: {key: 1}}
+    ], {allowDiskUse: true}).toArray();
+
+    const userSet = {};
+    let adOrders = 0;
+    const docs = await common.db.collection(COLLECTION_AD_PAYMENTS).find(match, {uid: 1}).toArray();
+    docs.forEach((doc) => {
+        userSet[doc.uid] = true;
+        adOrders++;
+    });
+
+    return {
+        rows: rows,
+        ad_orders: adOrders,
+        ad_users: Object.keys(userSet).length
+    };
 }
 
 async function getHistoricalRevenueAggregate(params, appId, range) {

@@ -49,6 +49,13 @@
                         data: this.revenueRows.map(function(row) {
                             return row.pay_users || 0;
                         })
+                    }, {
+                        name: CV.i18n('revenue.chart.ad-orders'),
+                        type: 'line',
+                        yAxisIndex: 1,
+                        data: this.revenueRows.map(function(row) {
+                            return row.ad_orders || 0;
+                        })
                     }]
                 };
             },

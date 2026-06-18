@@ -8,7 +8,11 @@ pluginManager.dbConnection().then(function(countlyDb) {
         ['soda_pay_order_fact', {app_id: 1, date: 1}, {background: true}],
         ['soda_pay_order_fact', {app_id: 1, uid: 1, date: 1}, {background: true}],
         ['soda_pay_order_fact', {app_id: 1, channel: 1, date: 1}, {background: true}],
-        ['soda_pay_order_fact', {app_id: 1, order_id: 1}, {background: true}]
+        ['soda_pay_order_fact', {app_id: 1, order_id: 1}, {background: true}],
+        ['soda_ad_order_fact', {app_id: 1, date: 1}, {background: true}],
+        ['soda_ad_order_fact', {app_id: 1, uid: 1, date: 1}, {background: true}],
+        ['soda_ad_order_fact', {app_id: 1, channel: 1, date: 1}, {background: true}],
+        ['soda_ad_order_fact', {app_id: 1, order_id: 1}, {background: true}]
     ];
 
     async.forEach(indexes, function(item, done) {
