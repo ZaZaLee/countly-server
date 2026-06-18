@@ -60,6 +60,7 @@
                 to: filters.to,
                 days: filters.days.join(','),
                 activity_mode: filters.activityMode,
+                cohort_type: 'active',
                 channel: filters.channel || ''
             }).then(mapRetentionResponse);
         },

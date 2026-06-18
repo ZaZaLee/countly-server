@@ -44,7 +44,7 @@ const FEATURE_NAME = 'times_of_day';
         var options = {};
 
 
-        if (hasSession && params.qstring.hour && params.qstring.dow) {
+        if (hasSession && params.qstring.hour !== undefined && params.qstring.dow !== undefined) {
             var sessionDate = common.initTimeObj(params.appTimezone, params.qstring.timestamp);
             let id = appId + "_" + "[CLY]_session" + "_" + sessionDate.monthly.replace('.', ':');
 
