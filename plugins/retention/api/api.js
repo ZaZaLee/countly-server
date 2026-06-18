@@ -197,6 +197,12 @@ function writeActivity(appId, uid, date, ts, eventKey, isLogin, activeByAnyEvent
     }
 
     common.writeBatcher.add(COLLECTION_FIRSTS, firstId, firstUpdate);
+
+    common.db.collection(COLLECTION_FIRSTS).updateOne(
+        {_id: firstId, first_active_date: {$exists: false}},
+        {$set: {first_active_date: date, first_active_ts: ts}},
+        function() {}
+    );
 }
 
 function writeActivityBuckets(appId, uid, ts, date, eventKey, channel) {
