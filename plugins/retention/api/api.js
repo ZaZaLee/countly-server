@@ -791,7 +791,41 @@ function normalizeActivityMode(value) {
 }
 
 function getConfig(params) {
-    return plugins.getConfig(PLUGIN_NAME, params && params.app && params.app.plugins, true);
+    const config = plugins.getConfig(PLUGIN_NAME, params && params.app && params.app.plugins, true);
+    config.login_events = normalizeStringList(config.login_events);
+    config.excluded_activity_events = normalizeStringList(config.excluded_activity_events);
+    config.channel_segments = normalizeStringList(config.channel_segments);
+    config.order_segments = normalizeStringList(config.order_segments);
+    config.iap_segments = normalizeStringList(config.iap_segments);
+    return config;
+}
+
+function normalizeStringList(value) {
+    if (Array.isArray(value)) {
+        return value.map((item) => item + '').filter((item) => item !== '');
+    }
+    if (value === undefined || value === null || value === '') {
+        return [];
+    }
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) {
+            return [];
+        }
+        if (trimmed[0] === '[') {
+            try {
+                const parsed = JSON.parse(trimmed);
+                if (Array.isArray(parsed)) {
+                    return normalizeStringList(parsed);
+                }
+            }
+            catch (err) {
+                // Fall back to comma/newline parsing for malformed config values.
+            }
+        }
+        return trimmed.split(/[\n,]/).map((item) => item.trim()).filter((item) => item !== '');
+    }
+    return [value + ''];
 }
 
 function isTrackableActivity(eventKey, config) {
