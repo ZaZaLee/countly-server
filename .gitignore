@@ -46,3 +46,4 @@ plugins/plugins.json.*
 .sdk
 dump
 dist/
+certs/

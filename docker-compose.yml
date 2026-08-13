@@ -44,7 +44,7 @@ services:
       - '443:8443'
     volumes:
       - './bin/docker/nginx.server.conf:/opt/bitnami/nginx/conf/server_blocks/countly.conf:ro'
-      - '/etc/letsencrypt:/etc/letsencrypt:ro'
+      - './certs:/opt/bitnami/nginx/certs:ro,Z'
       - '/var/www/certbot:/var/www/certbot:ro'
     networks:
       countly:
