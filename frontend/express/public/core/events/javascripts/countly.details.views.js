@@ -1,5 +1,9 @@
 /* global countlyVue, countlyGlobal, countlyAllEvents, countlyDrillMeta, countlyCommon, CountlyHelpers, CV,app */
 (function() {
+    function isEnabledPlugin(pluginName) {
+        return Boolean(countlyGlobal && Array.isArray(countlyGlobal.plugins) && countlyGlobal.plugins.indexOf(pluginName) !== -1);
+    }
+
     var EventsTable = countlyVue.views.create({
         template: CV.T("/core/events/templates/eventsTable.html"),
         mixins: [countlyVue.mixins.i18n],
@@ -182,7 +186,7 @@
                     URLparams.dbFilter[`sg.${doc.selectedSegment}`] = { "$in": doc.selectedSegmentValues };
                 }
                 // Use the custom raw-event viewer when the official Drill plugin is unavailable.
-                if (CountlyHelpers.isPluginEnabled("custom-drill") && !CountlyHelpers.isPluginEnabled("drill")) {
+                if (isEnabledPlugin("custom-drill") && !isEnabledPlugin("drill")) {
                     app.navigate("#/custom-drill/" + JSON.stringify({event: doc.selectedEventName, period: doc.period}), true);
                 }
                 else {
@@ -274,7 +278,7 @@
                 return str;
             },
             openDrillEventDrawer: function() {
-                if (CountlyHelpers.isPluginEnabled("custom-drill") && !CountlyHelpers.isPluginEnabled("drill")) {
+                if (isEnabledPlugin("custom-drill") && !isEnabledPlugin("drill")) {
                     app.navigate("#/custom-drill/" + JSON.stringify({event: this.selectedEventName, period: countlyCommon.getPeriod()}), true);
                     return;
                 }
@@ -444,7 +448,7 @@
                 return this.$store.getters["countlyAllEvents/isChartLoading"];
             },
             isDrillEnabled: function() {
-                return CountlyHelpers.isPluginEnabled("drill") || CountlyHelpers.isPluginEnabled("custom-drill");
+                return isEnabledPlugin("drill") || isEnabledPlugin("custom-drill");
             }
 
         },
