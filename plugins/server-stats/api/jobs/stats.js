@@ -8,12 +8,14 @@ const job = require('../../../../api/parts/jobs/job.js'),
     moment = require('moment-timezone');
 
 let drill;
-try {
-    drill = require('../../../drill/api/parts/data/drill.js');
-}
-catch (ex) {
-    log.e(ex);
-    drill = null;
+if (pluginManager.isPluginEnabled('drill')) {
+    try {
+        drill = require('../../../drill/api/parts/data/drill.js');
+    }
+    catch (ex) {
+        log.e(ex);
+        drill = null;
+    }
 }
 
 /** Representing a StatsJob. Inherits api/parts/jobs/job.js (job.Job) */
