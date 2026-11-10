@@ -13,7 +13,9 @@ if (pluginManager.isPluginEnabled('drill')) {
         drill = require('../../../drill/api/parts/data/drill.js');
     }
     catch (ex) {
-        log.e(ex);
+        if (ex.code !== 'MODULE_NOT_FOUND') {
+            log.e(ex);
+        }
         drill = null;
     }
 }
