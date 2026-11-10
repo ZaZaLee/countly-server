@@ -181,8 +181,13 @@
                 if (doc.selectedSegment !== "segment" && doc.selectedSegmentValues.length > 0) {
                     URLparams.dbFilter[`sg.${doc.selectedSegment}`] = { "$in": doc.selectedSegmentValues };
                 }
-                //Go to drill page
-                app.navigate("#/drill/" + JSON.stringify(URLparams), true);
+                // Use the custom raw-event viewer when the official Drill plugin is unavailable.
+                if (CountlyHelpers.isPluginEnabled("custom-drill") && !CountlyHelpers.isPluginEnabled("drill")) {
+                    app.navigate("#/custom-drill/" + JSON.stringify({event: doc.selectedEventName, period: doc.period}), true);
+                }
+                else {
+                    app.navigate("#/drill/" + JSON.stringify(URLparams), true);
+                }
             },
             onCopy: function() {
                 this.fetchSegments();
@@ -269,6 +274,10 @@
                 return str;
             },
             openDrillEventDrawer: function() {
+                if (CountlyHelpers.isPluginEnabled("custom-drill") && !CountlyHelpers.isPluginEnabled("drill")) {
+                    app.navigate("#/custom-drill/" + JSON.stringify({event: this.selectedEventName, period: countlyCommon.getPeriod()}), true);
+                    return;
+                }
                 let args = {
                     "selectedEventName": this.selectedEventName,
                     "selectedSegment": this.currentActiveSegmentation,
@@ -435,7 +444,7 @@
                 return this.$store.getters["countlyAllEvents/isChartLoading"];
             },
             isDrillEnabled: function() {
-                return CountlyHelpers.isPluginEnabled("drill");
+                return CountlyHelpers.isPluginEnabled("drill") || CountlyHelpers.isPluginEnabled("custom-drill");
             }
 
         },

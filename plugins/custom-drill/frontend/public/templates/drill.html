@@ -1,0 +1,52 @@
+<div class="custom-drill">
+    <cly-header title="Custom Drill">
+        <template v-slot:header-right>
+            <el-button size="small" :disabled="!rows.length" @click="exportCsv">Export CSV</el-button>
+        </template>
+    </cly-header>
+    <cly-main class="bu-pt-4">
+        <cly-section class="bu-mb-4">
+            <div class="bu-columns">
+                <div class="bu-column">
+                    <label>Event</label>
+                    <el-input v-model="eventName" placeholder="Event name"></el-input>
+                </div>
+                <div class="bu-column">
+                    <label>From</label>
+                    <el-date-picker v-model="from" type="datetime" value-format="yyyy-MM-ddTHH:mm"></el-date-picker>
+                </div>
+                <div class="bu-column">
+                    <label>To</label>
+                    <el-date-picker v-model="to" type="datetime" value-format="yyyy-MM-ddTHH:mm"></el-date-picker>
+                </div>
+            </div>
+            <div class="bu-columns bu-mt-3">
+                <div class="bu-column"><label>User ID</label><el-input v-model="userId"></el-input></div>
+                <div class="bu-column"><label>Device ID</label><el-input v-model="deviceId"></el-input></div>
+                <div class="bu-column"><label>Segmentation field</label><el-input v-model="segmentKey" placeholder="e.g. level_id_new"></el-input></div>
+                <div class="bu-column"><label>Segmentation value</label><el-input v-model="segmentValue"></el-input></div>
+                <div class="bu-column bu-is-flex bu-is-align-items-flex-end"><el-button type="primary" :loading="busy" @click="search(false)">Search</el-button></div>
+            </div>
+        </cly-section>
+        <cly-notification v-if="error" :text="error" color="light-warning"></cly-notification>
+        <cly-section>
+            <p v-if="!rows.length && !busy">No raw events found for this query.</p>
+            <el-table v-else :data="rows" stripe>
+                <el-table-column label="Event time" min-width="180">
+                    <template slot-scope="scope">{{formatTime(scope.row.ts)}}</template>
+                </el-table-column>
+                <el-table-column prop="uid" label="User ID" min-width="140"></el-table-column>
+                <el-table-column prop="did" label="Device ID" min-width="140"></el-table-column>
+                <el-table-column prop="count" label="Count" width="90"></el-table-column>
+                <el-table-column prop="sum" label="Sum" width="100"></el-table-column>
+                <el-table-column label="Segmentation" min-width="280">
+                    <template slot-scope="scope"><code>{{formatSegmentation(scope.row.sg)}}</code></template>
+                </el-table-column>
+            </el-table>
+            <div class="bu-is-flex bu-is-justify-content-center bu-pt-4" v-if="hasMore">
+                <el-button :loading="busy" @click="search(true)">Load more</el-button>
+            </div>
+            <p class="bu-pt-3" v-if="rows.length">Showing {{rows.length}} raw event records. Export is capped at 10,000 records.</p>
+        </cly-section>
+    </cly-main>
+</div>

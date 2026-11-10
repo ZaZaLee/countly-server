@@ -1,6 +1,8 @@
 #!/bin/bash
 
-if [ -f /opt/countly/plugins/plugins.json ]; then
+PLUGIN_LIST=",${COUNTLY_PLUGINS},"
+
+if [ -f /opt/countly/plugins/plugins.json ] && [[ "$PLUGIN_LIST" != *,drill,* ]] && [[ "$PLUGIN_LIST" != *,custom-drill,* ]]; then
 	echo "[docker] Plugins have been built, skipping rebuilding"
 else
 	if [ -z "$COUNTLY_PLUGINS" ]; then
@@ -9,8 +11,13 @@ else
   		cat /opt/countly/plugins/plugins.json
 	else
 		echo "[docker] Using COUNTLY_PLUGINS: $COUNTLY_PLUGINS"
-		if [[ $COUNTLY_PLUGINS == *"drill"* ]] && [[ $COUNTLY_PLUGINS != *"license"* ]]; then
-    			COUNTLY_PLUGINS=${COUNTLY_PLUGINS/drill/license,drill}
+		PLUGIN_LIST=",${COUNTLY_PLUGINS},"
+		if [[ "$PLUGIN_LIST" == *,drill,* ]] && [[ "$PLUGIN_LIST" != *,license,* ]]; then
+			if [[ "$COUNTLY_PLUGINS" == "drill" ]]; then
+				COUNTLY_PLUGINS="license,drill"
+			else
+				COUNTLY_PLUGINS=${COUNTLY_PLUGINS//,drill/,license,drill}
+			fi
 			echo "[docker] added license plugin: $COUNTLY_PLUGINS"
 		fi
 

@@ -247,7 +247,8 @@ function processEvents(appEvents, appSegments, appSgValues, params, omitted_segm
 
         plugins.dispatch("/i/events", {
             params: params,
-            currEvent: currEvent
+            currEvent: currEvent,
+            eventIndex: i
         });
 
         shortEventName = common.fixEventKey(currEvent.key);

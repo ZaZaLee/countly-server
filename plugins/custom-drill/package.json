@@ -1,0 +1,10 @@
+{
+  "name": "countly-custom-drill",
+  "title": "Custom Drill",
+  "version": "0.1.0",
+  "description": "Raw event storage and query API backed by MongoDB",
+  "author": "Soda",
+  "keywords": ["countly", "analytics", "events", "drill"],
+  "dependencies": {},
+  "private": true
+}

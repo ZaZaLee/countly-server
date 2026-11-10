@@ -1777,7 +1777,8 @@ var pluginManager = function pluginManager() {
 
     this.connectToAllDatabases = async() => {
         let dbs = ['countly', 'countly_out', 'countly_fs'];
-        if (fs.existsSync(path.resolve(__dirname, 'drill'))) {
+        if (fs.existsSync(path.resolve(__dirname, 'drill')) ||
+            (fs.existsSync(path.resolve(__dirname, 'custom-drill')) && plugins.indexOf('custom-drill') !== -1)) {
             dbs.push('countly_drill');
         }
 
